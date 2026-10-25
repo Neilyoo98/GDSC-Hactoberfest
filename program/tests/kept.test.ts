@@ -22,6 +22,15 @@ const admin = pg.wallet.keypair;
 const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000));
 const now = async () => (await conn.getBlockTime(await conn.getSlot())) ?? Math.floor(Date.now() / 1000);
 
+// Wait on the chain clock, not wall time: busy RPCs (429 retries) make fixed sleeps flaky.
+async function waitUntil(ts: number) {
+  while ((await now()) <= ts) await sleep(2);
+}
+const waitPastDeadline = async (market: web3.PublicKey) =>
+  waitUntil((await program.account.market.fetch(market)).deadline.toNumber());
+const waitPastWindow = async (market: web3.PublicKey) =>
+  waitUntil((await program.account.market.fetch(market)).proposedAt.toNumber() + WINDOW);
+
 const pda = (seeds: (Buffer | Uint8Array)[]) =>
   web3.PublicKey.findProgramAddressSync(seeds, program.programId)[0];
 const u64 = (n: number | BN) => new BN(n).toArrayLike(Buffer, "le", 8);
@@ -143,7 +152,7 @@ describe("kept", () => {
   });
 
   it("worked example: 10 on Broken out of 100 (25 Broken) pays 40", async () => {
-    const market = await createMarket(8);
+    const market = await createMarket(30);
     await stake(market, alice, BROKEN, 10 * T);
     await stake(market, bob, BROKEN, 15 * T);
     await stake(market, carol, KEPT, 75 * T);
@@ -153,13 +162,13 @@ describe("kept", () => {
     assert.equal(m.totalKept.toNumber(), 75 * T);
 
     await expectError(propose(market, BROKEN, 8600), "BeforeDeadline");
-    await sleep(9);
+    await waitPastDeadline(market);
     await propose(market, BROKEN, 8600);
     await expectError(
       program.methods.finalize().accounts({ config: configPda, market }).rpc(),
       "WindowOpen",
     );
-    await sleep(WINDOW + 1);
+    await waitPastWindow(market);
     await program.methods.finalize().accounts({ config: configPda, market }).rpc();
 
     const [a0, b0, c0] = [await balance(alice), await balance(bob), await balance(carol)];
@@ -184,10 +193,10 @@ describe("kept", () => {
   });
 
   it("low confidence goes to the council, which can void", async () => {
-    const market = await createMarket(6);
+    const market = await createMarket(25);
     await stake(market, alice, KEPT, 20 * T);
     await stake(market, bob, BROKEN, 20 * T);
-    await sleep(7);
+    await waitPastDeadline(market);
     await propose(market, KEPT, 6500); // below 0.70
     assert.deepEqual((await program.account.market.fetch(market)).status, { council: {} });
 
@@ -209,10 +218,10 @@ describe("kept", () => {
   });
 
   it("challenge: council overturns, challenger wins and gets the bond back", async () => {
-    const market = await createMarket(6);
+    const market = await createMarket(25);
     await stake(market, alice, KEPT, 20 * T);
     await stake(market, bob, BROKEN, 20 * T);
-    await sleep(7);
+    await waitPastDeadline(market);
     await propose(market, KEPT, 9000);
 
     await expectError(
@@ -244,11 +253,11 @@ describe("kept", () => {
   });
 
   it("challenge after the window is rejected", async () => {
-    const market = await createMarket(6);
+    const market = await createMarket(25);
     await stake(market, bob, BROKEN, 5 * T);
-    await sleep(7);
+    await waitPastDeadline(market);
     await propose(market, KEPT, 9000);
-    await sleep(WINDOW + 1);
+    await waitPastWindow(market);
     await expectError(
       program.methods
         .challenge()
