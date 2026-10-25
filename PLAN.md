@@ -948,3 +948,4 @@ NEXT_PUBLIC_BURNER=0           # 1 = auto-connect a burner wallet (tests, backup
 - [ ] **News search input** (P2 + P3): find promises by topic through Tavily, not only by X link
 - [ ] **Background resolver loop** (P2): markets resolve themselves after the deadline
 - [ ] **Promiser pages from X handles** (P3): avatar + record for every promiser
+- [ ] **Public tUSDC-weighted voting instead of the 3-person council** (all lanes, post-hackathon): anyone locks 1–100 tUSDC on Kept / Broken / Void, most tUSDC wins, losing voters pay winners. The program is written and unit-tested on branch `p1/public-vote` (closed PR #14); it changes every lane's contract, so it was kept out of the demo. Mention it in the pitch as the next step.
