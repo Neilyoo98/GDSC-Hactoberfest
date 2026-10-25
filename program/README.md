@@ -14,7 +14,7 @@ Built with the Anchor CLI in WSL (`build.sh`) and deployed to devnet. The Playgr
 
 ## Program ID
 
-**`GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap`** (devnet). The program keypair is `~/.config/kept/kept-keypair.json` in P1's WSL, so the ID stays the same on every rebuild.
+**`GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap`**, **deployed on devnet** ([Explorer](https://explorer.solana.com/address/GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap?cluster=devnet)). Upgrade authority: `Cz7PnNvnNhPAuuTAXAYv9Xd8qQkdnzTktcyTeUMdgkWs`. The program keypair is `~/.config/kept/kept-keypair.json` in P1's WSL, so the ID stays the same on every rebuild.
 
 ## Build (WSL / Linux, Anchor CLI 0.31.2 + Agave 2.3.13)
 
@@ -41,9 +41,11 @@ solana program deploy target/deploy/kept.so --program-id target/deploy/kept-keyp
 
 **Backup:** Solana Playground (`beta.solpg.io`): paste `src/lib.rs`, build, deploy, export the IDL. This uses a different program ID.
 
-## Test in Playground
+## Tests
 
-Test tab → **Run**. About 1 minute, because the tests wait for real deadlines and the 5-second window.
+Test tab → **Run**. About 3 minutes, because the tests wait for real deadlines and the 5-second window, measured on the chain clock.
+
+**Status:** 5/5 pass against the deployed program on devnet (2026-10-25).
 
 The tests make their **own** Config (seeded by the Playground wallet) and their own test mint, so they never touch the app's config. Re-running is safe; the suite reuses the config it made.
 
