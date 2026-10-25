@@ -255,7 +255,12 @@ for (const path of [
   });
 }
 
-test('unknown market and promiser return 404', async ({ page }) => {
-  expect((await page.goto('/markets/999999'))?.status()).toBe(404);
+test('non-demo markets load the chain and unknown promisers return 404', async ({
+  page,
+}) => {
+  expect((await page.goto('/markets/999999'))?.status()).toBe(200);
+  await expect(
+    page.getByText('This market isn’t on-chain yet.', { exact: true }),
+  ).toBeVisible();
   expect((await page.goto('/promisers/does-not-exist'))?.status()).toBe(404);
 });
