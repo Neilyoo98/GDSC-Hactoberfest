@@ -1,346 +1,184 @@
-<div align="center">
+# Kept
 
-<img src="./assets/logo.svg" width="112" alt="Kept logo" />
+A public record of promises on Solana. Paste a promise from the news, turn it into a yes-or-no market with a deadline, let people back Kept or Broken with test USDC, and settle the result on-chain.
 
-# Kept: did they keep their promise?
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Solana devnet](https://img.shields.io/badge/solana-devnet-black.svg)](https://explorer.solana.com/address/GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap?cluster=devnet)
 
-**A public record of promises, with money where the mouth is.**
+Built at Hacktoberfest 2026 (GDSC × MLH) at the University of Maryland.
 
-<img src="./assets/hero.svg" width="100%" alt="A promise from the news becomes a yes-or-no market with a deadline; people back Kept or Broken with test USDC; the result settles on Solana." />
+## Overview
 
-![Solana](https://img.shields.io/badge/Solana-devnet-14F195?style=flat-square&logo=solana&logoColor=black) ![Anchor](https://img.shields.io/badge/Anchor-0.31-512DA8?style=flat-square) ![Rust](https://img.shields.io/badge/Rust-program-000000?style=flat-square&logo=rust&logoColor=white) ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white) ![OpenAI](https://img.shields.io/badge/OpenAI-structured_output-412991?style=flat-square&logo=openai&logoColor=white) ![Tavily](https://img.shields.io/badge/Tavily-news_%2B_evidence-0EA5E9?style=flat-square)
-<br/>
-![App tests](https://img.shields.io/badge/app_tests-171_passing-22C55E?style=flat-square) ![Program tests](https://img.shields.io/badge/program_tests-5%2F5_on_devnet-22C55E?style=flat-square) ![Smoke](https://img.shields.io/badge/smoke:devnet-passing-22C55E?style=flat-square) ![Gasless](https://img.shields.io/badge/users_need-0_SOL-2563EB?style=flat-square) ![Custody](https://img.shields.io/badge/admin_withdraw-none-EC4899?style=flat-square)
+Public figures make promises every day, and almost nobody checks back. Kept keeps a verifiable record:
 
-<sub><b>Hacktoberfest 2026 (GDSC × MLH)</b> · University of Maryland, College Park</sub>
+- A promise is stored on-chain with its exact text and a SHA-256 fingerprint of the source, so it survives edits and deletions.
+- People stake test USDC (1–100 per person per market) on whether it will be kept. The odds show how credible the promise is before the deadline.
+- After the deadline, an AI resolver searches for evidence and proposes a verdict with citations. Anyone with a stake can challenge it, and a three-member council settles disputes.
+- The Anchor program holds every stake in a per-market vault and pays winners. There is no admin withdrawal.
 
-[Why Kept](#-why-kept-exists) · [Features](#-features) · [How it works](#-how-it-works) · [Tech stack](#-tech-stack) · [Tracks](#-tracks) · [Results](#-results) · [Obstacles](#-context-and-obstacles) · [Demo](#-demo-script) · [Impact](#-impact) · [Run it](#-run-it)
+Kept runs on devnet with test tokens only.
 
-**Program (devnet):** [`GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap`](https://explorer.solana.com/address/GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap?cluster=devnet)
-
-</div>
-
----
-
-## 💡 Why Kept exists
-
-> [!IMPORTANT]
-> **Public figures make promises every day, and almost nobody checks back.** Posts get deleted, pages get edited, people forget. There is no simple public record of who keeps their word.
-
-Kept turns any public promise into a **yes-or-no question with a deadline**. People back **✓ Kept** or **✕ Broken** with capped test stakes, so the odds show how believable a promise is *before* the deadline. When the deadline passes, AI researches what happened and proposes a result **with its sources**; anyone who predicted can challenge it, a three-person council settles disputes, and the program pays the winners. The promise, a fingerprint of its source and the result stay on Solana, where nobody can quietly edit or delete them, including us.
-
-| | A tweet or a news quote | **The same promise on Kept** |
-|---|---|---|
-| Can it disappear? | Deleted or edited anytime | Exact text + **sha256 of the source** on-chain |
-| How believable is it? | Opinions in replies | **Live odds** from capped stakes (1–100 tUSDC per person) |
-| Did it happen? | Whoever argues loudest | **AI verdict with citations**, challengeable, settled by program rules |
-| Track record? | Scattered | A **promiser page** with Kept · Broken · Pending |
-
----
-
-## ✨ Features
-
-| Feature | What it does |
-|---|---|
-| 📰 **In the news this week** | A live rail of dated public commitments from news search (social posts, charity "pledges" and sports "deadlines" filtered out); **Track this** opens the create form prefilled |
-| ✍️ **Track a promise** | Paste an X post, article URL or text → the source is fetched and fingerprinted → AI drafts who, the exact quote, the deadline and Kept/Broken criteria, or **rejects** vague, private-person or harmful claims with a reason |
-| ⛓️ **Create on Solana** | The edited draft becomes a market account with its own vault; the browser lands on the new market |
-| 🎯 **Predict** | Back Kept or Broken with 1–100 tUSDC, once per wallet per market; odds and the pool update live |
-| 🔎 **AI resolution** | After the deadline, the resolver searches for evidence, judges against the criteria and writes a **resolver-signed proposal** on-chain, with a research trace shown in the UI |
-| ⚖️ **Challenge → council** | Stakers can challenge within the window with a 10 tUSDC bond; three council wallets vote and **2 matching votes** decide Kept, Broken or Void |
-| 💸 **Claim** | Winners claim `stake × (pool + forfeited bonds) ÷ winning side`; Void refunds everyone |
-| 📣 **Share on X** | After a confirmed prediction, one click opens a post with your call, the promise, the deadline and a link back |
-| 👛 **Your own wallet** | Phantom, Solflare, Backpack… through wallet-standard, plus up to 10 browser test wallets for demos; **users never need SOL** |
-| 🪙 **Get tUSDC** | 100 test USDC once per wallet from the faucet |
-| 📒 **My bets · Forecasters · Promisers** | Your positions and claims, a leaderboard, and each promiser's public record |
-
----
-
-## 🧠 How it works
-
-> **AI drafts and judges. The program holds the money and enforces every rule.**
-
-A model that can move money is a liability, so Kept gives AI **two narrow jobs** (drafting a market and proposing a verdict) and wraps both in code that validates everything they return. Money only moves through an Anchor program: one vault per market, no admin withdraw, and every stake, proposal, challenge and vote is a public transaction.
+## How it works
 
 ```mermaid
 flowchart LR
-    src["📰 X post · article · text"] --> ctx["🔍 Context<br/>oEmbed · readability · sha256"]
-    ctx --> draft["🤖 Drafter<br/>exact quote · deadline · criteria<br/>or reject with a reason"]
-    draft --> create["⛓️ create_market<br/>market + vault on devnet"]
-    create --> stake["🎯 place_stake<br/>1–100 tUSDC, once per wallet"]
-    stake --> deadline{"⏰ deadline"}
-    deadline --> resolve["🔎 Resolver<br/>Tavily evidence → verdict + citations"]
-    resolve -- "Kept/Broken ≥ 0.7" --> proposed["📝 Proposed<br/>30 s challenge window"]
-    resolve -- "unclear or < 0.7" --> council
-    proposed -- "no challenge" --> final["✅ Finalized"]
-    proposed -- "challenge · 10 tUSDC bond" --> council["⚖️ Council<br/>2 of 3 votes"]
-    council --> final
-    final --> claim["💸 claim"]
+    A[Source: X post, article, text] --> B[AI draft: quote, deadline, criteria]
+    B --> C[create_market]
+    C --> D[place_stake]
+    D --> E{Deadline}
+    E --> F[AI resolver: evidence and verdict]
+    F -- "Kept/Broken, confidence >= 0.7" --> G[Proposed: challenge window]
+    F -- "Unclear or < 0.7" --> H[Council: 2 of 3 votes]
+    G -- "No challenge" --> I[Finalized]
+    G -- "Challenge with 10 tUSDC bond" --> H
+    H --> I
+    I --> J[claim]
 ```
 
-| Layer | Who | What happens |
+1. **Draft.** The server fetches the source (X oEmbed or article extraction), fingerprints it, and asks the drafter for the promiser, the exact quote, a deadline, and pass/fail criteria. Vague, undated, private-person, or harmful claims are rejected with a reason.
+2. **Create.** The reviewed draft becomes a `Market` account with its own token vault.
+3. **Predict.** Each wallet can stake once per market. Fees and rent are paid by a server relay, so users never need SOL.
+4. **Resolve.** After the deadline, the resolver gathers evidence with Tavily, judges only against the market's criteria, and submits a resolver-signed proposal. Low-confidence or unclear results go straight to the council.
+5. **Settle.** An unchallenged proposal can be finalized by anyone after the window. A challenged one is decided by two matching council votes.
+6. **Claim.** Winners receive `stake × (total staked + forfeited bonds) ÷ winning side`. Void markets refund every stake.
+
+## Features
+
+- Live feed of dated public commitments from this week's news, each one a click away from a draft
+- AI drafting with structured output and guardrails
+- On-chain markets, stakes, proposals, challenges, council votes, and claims
+- Gasless transactions through a restricted fee-payer relay
+- Wallet support through wallet-standard (Phantom, Solflare, Backpack) plus browser test wallets
+- Test USDC faucet, personal bets page, forecaster leaderboard, and promiser records
+- Share-on-X after placing a prediction
+- Solana Actions (Blinks) for staking from dial.to
+
+## Architecture
+
+| Component | Technology | Location |
 |---|---|---|
-| **Context** | Server | X oEmbed or article extraction (readability), normalized text, **sha256 fingerprint**; Tavily search for evidence and for this week's news |
-| **Intelligence** | OpenAI | Structured JSON output: the drafter quotes the source word for word and names where to check; the resolver judges only the criteria and must cite sources it actually read |
-| **Orchestration** | Server | Resolve workflow (read → search → judge → validate → write) with a live trace; gasless relay; faucet |
-| **Settlement** | Anchor program | Config · Market · Vault · Position accounts; deadlines, stake limits, challenge window, 2-of-3 council, payout math |
-| **Experience** | Next.js | Ledger, market page, create flow, council desk, my bets, wallet connect, share on X |
+| Program | Rust, Anchor 0.31, SPL Token | `program/` |
+| Web app | Next.js 16, React 19, TypeScript, Tailwind CSS | `app/src/app/` |
+| Chain client | `@coral-xyz/anchor`, `@solana/web3.js`, wallet-adapter | `app/src/chain/`, `app/src/wallet/` |
+| AI | OpenAI Responses API with JSON-schema output | `app/src/server/intelligence/` |
+| Sources and search | Tavily, X oEmbed, Mozilla Readability | `app/src/server/context/` |
+| Server workflows | Resolver, relay, faucet | `app/src/server/orchestrator/` |
 
-<details>
-<summary><b>📋 Program instructions and rules</b></summary>
+The chain is the system of record; there is no database. API keys and signing keys stay on the server.
 
-| Instruction | Signers | Rule |
+### Program
+
+| Instruction | Signer | Purpose |
 |---|---|---|
-| `initialize_config` · `update_config` | admin | resolver, 3 council keys, challenge window (30 s demo, 24 h production), 10 tUSDC bond |
-| `create_market` | creator + fee payer | deadline in the future; text capped so the transaction fits in 1,232 bytes |
-| `place_stake` | user + fee payer | open, before the deadline, 1–100 tUSDC, one position per wallet |
-| `propose_outcome` | resolver only | after the deadline; Kept/Broken ≥ 7000 bps → Proposed, otherwise → Council |
-| `challenge` | a staker | while the window is open; bond moves into the vault |
-| `council_vote` | council members | 2 matching votes decide; three different votes → Void |
-| `finalize` | anyone | an unchallenged proposal after the window |
-| `claim` | position owner | payout, refund on Void, bond back if the council overturned the AI |
+| `initialize_config`, `update_config` | Admin | Resolver key, council members, challenge window, bond |
+| `create_market` | Creator and fee payer | New market and vault; text limits keep the transaction under 1,232 bytes |
+| `place_stake` | User and fee payer | 1–100 tUSDC, one position per wallet, before the deadline |
+| `propose_outcome` | Resolver | Verdict, confidence, summary, sources, evidence hash |
+| `challenge` | Staker | Posts the bond during the challenge window |
+| `council_vote` | Council member | Two matching votes decide; three different votes void the market |
+| `finalize` | Anyone | Settles an unchallenged proposal after the window |
+| `claim` | Position owner | Payout, refund, or returned bond |
 
-Payout: `stake × (total staked + forfeited bonds) ÷ winning side`, rounded down. Worked example: 10 on Broken, 100 in the market, 25 on Broken → **40 tUSDC**.
+Program ID (devnet): [`GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap`](https://explorer.solana.com/address/GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap?cluster=devnet)
 
-</details>
+## Getting started
 
-<details>
-<summary><b>🏗️ Architecture</b></summary>
+### Prerequisites
 
-```mermaid
-flowchart LR
-    subgraph web["Next.js app"]
-        pages["Pages: ledger · market · create<br/>council · my bets · faucet"]
-        hooks["chain/hooks.ts<br/>KeptChain: mock | anchor"]
-        api["API routes<br/>/api/draft · /api/resolve/[id]<br/>/api/relay · /api/faucet · /api/news<br/>/api/actions/stake (Blinks)"]
-    end
-    subgraph ai["AI + search"]
-        openai["OpenAI<br/>drafter · resolver"]
-        tavily["Tavily<br/>evidence · news"]
-    end
-    subgraph chain["Solana devnet"]
-        program["Kept program<br/>Config · Market · Vault · Position"]
-        mint["tUSDC mint"]
-    end
-    pages --> hooks --> api
-    hooks -- "user-signed tx" --> relay["/api/relay<br/>fee payer co-signs"] --> program
-    api --> openai
-    api --> tavily
-    api -- "resolver-signed proposal" --> program
-    api -- "faucet" --> mint
-```
+- Node.js 20 or later
+- An OpenAI API key and a Tavily API key
+- A Solana wallet set to devnet (optional in mock mode)
+- WSL or Linux with the Solana and Anchor CLIs, only if you build the program yourself
 
-The chain is the database. Keys (OpenAI, Tavily, fee payer, resolver) live only on the server.
-
-</details>
-
----
-
-## 🧰 Tech stack
-
-| Layer | Technology | Where |
-|---|---|---|
-| Program | Rust, Anchor 0.31 (CLI 0.31.2), Agave 2.3.13 platform tools, SPL Token | `program/` |
-| Chain client | `@coral-xyz/anchor`, `@solana/web3.js` v1, `@solana/spl-token`, typed IDL | `app/src/chain/`, `app/src/shared/idl/` |
-| Wallets | `@solana/wallet-adapter` (wallet-standard: Phantom, Solflare, Backpack), browser test wallets | `app/src/wallet/` |
-| AI | OpenAI Responses API with JSON-schema output and reasoning effort per task | `app/src/server/intelligence/` |
-| Search | Tavily (evidence + news), X oEmbed, Mozilla Readability + linkedom | `app/src/server/context/` |
-| App | Next.js 16 (App Router), React 19, TypeScript, Tailwind, Sonner | `app/src/app/` |
-| Blinks | Solana Actions (`@solana/actions`), `actions.json`, dial.to | `app/src/app/api/actions/` |
-| Tests | Vitest (unit + API), Playwright (UI), Anchor tests on devnet, `smoke-devnet.ts` | `app/`, `program/tests/` |
-
----
-
-## 🏆 Tracks
-
-### 1. Solana Partner Challenge
-
-**What we built on Solana:**
-- **Program-owned vaults:** one SPL token vault per market whose authority is the market PDA. There is **no admin withdraw** instruction; money only leaves through `claim`.
-- **Every step is a transaction:** market creation (with the source fingerprint), stakes, the resolver-signed proposal, challenges, council votes and claims are all on [devnet Explorer](https://explorer.solana.com/address/GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap?cluster=devnet).
-- **Gasless for users:** a server fee payer co-signs, but only transactions that call approved Kept instructions (create, stake, challenge, vote, finalize, claim), with one market instruction per transaction, bounded compute settings and the user's signature present. A SystemProgram transfer that would drain the fee payer is refused.
-- **Built for Solana's limits:** promise, criteria and URL lengths are capped so `create_market` stays under the 1,232-byte transaction limit (~1,050 bytes at the maximum).
-- **Blinks:** any market can be staked from a Solana Action on dial.to.
-
-### 2. Tech for Good
-
-**The need:** voters, customers and communities have no simple way to hold public figures to their word. **What Kept does about it:**
-- **Remembers:** each promise is saved with its exact text and a fingerprint of the source, so it survives deletion.
-- **Measures trust:** capped stakes (100 tUSDC per person per market) mean no rich account, and no promiser, can buy the odds.
-- **Checks results with evidence:** the AI must cite what it read; below 0.7 confidence it doesn't decide; humans can always challenge.
-- **Guardrails:** public figures and organizations only. The drafter rejects private individuals, vague or undated claims, and anything about death or harm before a market can exist.
-- **No real money:** devnet and test tokens only, labeled on every page.
-
----
-
-## 📊 Results
-
-**The full money path on real devnet** (`npm run smoke:devnet`, three wallets holding **0 SOL**):
-
-| Step | Result |
-|---|---|
-| Faucet × 3 | 100 tUSDC each, no SOL needed |
-| Create market + stakes | A 10 Broken · B 15 Broken · C 75 Kept → totals **75 / 25** |
-| Failure paths | Second stake, stake of 101, early finalize: **all refused** |
-| Propose → window → finalize | Broken, window enforced on the chain clock |
-| Claims | **A +40 · B +60 · C 0**, double claims refused |
-| Time | **71 s**, fully gasless |
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-**⛓️ Program on devnet**
-
-| Measure | Value |
-|---|---:|
-| Program size | 411 KB |
-| Deploy rent | 2.09 SOL (refundable) |
-| `create_market` tx at max text | ~1,050 / 1,232 bytes |
-| Program tests on devnet | **5 / 5** |
-| Rust unit tests | **5 / 5** |
-
-</td>
-<td width="50%" valign="top">
-
-**🤖 AI drafting, live example**
-
-| Field | Draft |
-|---|---|
-| Source | IANS via NewKerala, Oct 5, 2026 |
-| Decision | ✅ accept |
-| Promiser | Devendra Fadnavis |
-| Question | Sewri–Worli Elevated Corridor open before May 31, 2027? |
-| Check source | MMRDA notices + reputable news |
-
-</td>
-</tr>
-</table>
-
-**Engineering quality**
-
-| Check | Result |
-|---|---|
-| App (`vitest`) | **171 passed** in 16 files: chain decoding, payout mirror, PDAs, relay security, drafter and resolver guardrails, news filters, share text, API client, draft route |
-| Relay security | 7 offline tests: wrong fee payer, SystemProgram drain, `propose_outcome` through the relay, missing signature, huge priority fee, bundled instructions |
-| UI (`playwright`) | Create flow, ledger and guide specs in mock mode with a test wallet |
-| Program | Worked example (+40), bad stakes, low confidence → council → Void refunds, overturned challenge returns the bond, late challenge refused |
-
----
-
-## 🧗 Context and obstacles
-
-Four of us built Kept in one day on Windows laptops, split into four lanes (program, backend + AI, frontend UI, wallet + chain client) on parallel branches. What got in the way, and what we did about it:
-
-| Obstacle | What happened | What we did |
-|---|---|---|
-| **No Anchor experience, no Rust toolchain** | Windows blocked newly built unsigned binaries, so local `cargo` builds failed | Built in WSL with official Agave and Anchor release binaries; one `program/build.sh` reproduces the build |
-| **Solana toolchain vs. new crates** | `blake3` 1.8 pulls `digest` 0.11 (Rust 2024), which the platform tools' cargo 1.84 can't parse | Resolve dependencies with `rust-version = 1.79` and pin `blake3 = 1.5.5` in the build script |
-| **Devnet deploy failed halfway** | "Max retries exceeded" while writing 411 KB | Reclaimed the buffer's SOL, retried with a priority fee and more sign attempts |
-| **Rate-limited public RPC** | 429s made deadline-based tests flaky and spammed the dev console | Tests wait on the **chain clock**, not wall time; the home page shares one market poll |
-| **Wallet dropped on reload** | React StrictMode's second auto-connect returned early without emitting `connect` | The test wallet always emits `connect`; found with a Playwright reproduction |
-| **Two people built the same relay** | Backend and blockchain lanes wrote a faucet and relay in parallel | Kept the stricter relay (instruction allowlist, one instruction, signer checks) and rewrote the tests against it |
-| **Merging four lanes** | Add/add conflicts from the scaffold and overlapping pages | Merge `main` before every task; every handoff checked by the person receiving it; one owner per file |
-| **Contract changes mid-build** | A public token-weighted vote would have changed every lane's types after the IDL freeze | Kept the 3-person council for the demo; the voting program is written and unit-tested on `p1/public-vote` as the next step |
-| **Dev server state** | Switching branches under a running server corrupted its cache; a stray `npx next` ran from the repo root | Stop the server before switching, clear `.next`, start the app's own Next binary |
-
----
-
-## 🎬 Demo script
-
-1. **Home** → the masthead, on-chain totals, and **In the news this week**.
-2. **Track this** on a story → **Generate AI draft** → read the quote, deadline and criteria → paste a vague post to see a **rejection with a reason**.
-3. **Create on Solana** → approve in the wallet (**0 SOL**) → open the market and its Explorer link.
-4. Two wallets back **Kept** and **Broken** → the odds bar moves → **Share on X**.
-5. A seeded market past its deadline → **Run resolution** → the research trace and the on-chain proposal → the 30-second challenge window.
-6. **Challenge** with the bond → **Council** desk → two council wallets vote → settled.
-7. **My bets** → **Claim** (10 × 100 ÷ 25 = **40 tUSDC**) → the promiser's record updates.
-
----
-
-## 🌍 Impact
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-### For the public
-A permanent, searchable record of **who keeps their word**, with odds before the deadline and evidence after it, open to anyone, with no account needed to read.
-
-</td>
-<td width="33%" valign="top">
-
-### For journalists and watchdogs
-Every promise carries its **source fingerprint**, every verdict its **citations**, and every dispute its **council votes**, all independently verifiable on-chain.
-
-</td>
-<td width="33%" valign="top">
-
-### For AI with consequences
-A reusable pattern: **AI proposes, people can challenge, a program enforces.** The model never holds funds, and low confidence hands the decision to humans.
-
-</td>
-</tr>
-</table>
-
-**Next steps:** a public, token-weighted vote in place of the fixed council (written on `p1/public-vote`); promiser pages from verified handles; mainnet with a stablecoin once the dispute process is proven.
-
----
-
-## 🚀 Run it
+### Run locally
 
 ```bash
-cd app && npm install
-cp .env.example .env.local     # add OPENAI_API_KEY and TAVILY_API_KEY
-npm run dev                    # http://localhost:3000 (NEXT_PUBLIC_CHAIN=mock works with no chain setup)
-npm run check                  # typecheck + unit tests, offline
+cd app
+npm install
+cp .env.example .env.local    # add OPENAI_API_KEY and TAVILY_API_KEY
+npm run dev                   # http://localhost:3000
 ```
 
-**Real devnet:**
+With `NEXT_PUBLIC_CHAIN=mock`, the app runs against in-memory test data and needs no chain setup.
+
+### Use devnet
 
 ```bash
-npm run keys                   # fee payer + resolver keys into .env.local (fund them: ~1 SOL / ~0.1 SOL)
-npm run setup:devnet           # tUSDC mint + app config (resolver, COUNCIL_PUBKEYS, 30 s window)
-# set NEXT_PUBLIC_CHAIN=anchor, restart, then:
-npm run smoke:devnet           # full money path, asserts +40
+npm run keys            # generate fee-payer and resolver keys in .env.local
+# fund the fee payer (~1 SOL) and resolver (~0.1 SOL) with devnet SOL
+npm run setup:devnet    # create the tUSDC mint and the app config
 ```
 
-Full steps, fallbacks and demo reset: [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+Set `NEXT_PUBLIC_CHAIN=anchor` in `.env.local` and restart the dev server. See [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for the full setup, demo reset, and troubleshooting.
 
-<details>
-<summary><b>⛓️ Program</b></summary>
+### Configuration
+
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | Drafting and resolution |
+| `TAVILY_API_KEY` | Evidence search and the news feed |
+| `NEXT_PUBLIC_CHAIN` | `mock` or `anchor` |
+| `NEXT_PUBLIC_SOLANA_RPC_URL`, `SOLANA_RPC_URL` | RPC endpoint (a dedicated devnet RPC avoids public rate limits) |
+| `NEXT_PUBLIC_PROGRAM_ID`, `NEXT_PUBLIC_TUSDC_MINT`, `NEXT_PUBLIC_CONFIG_ADMIN`, `NEXT_PUBLIC_FEE_PAYER_PUBKEY` | Public chain values written by `keys` and `setup:devnet` |
+| `FEE_PAYER_SECRET`, `RESOLVER_SECRET` | Server signing keys; never commit these |
+| `COUNCIL_PUBKEYS`, `CHALLENGE_WINDOW` | Used by `setup:devnet` |
+| `NEXT_PUBLIC_SITE_URL` | Public base URL for shared links |
+
+## Testing
 
 ```bash
-bash program/build.sh test     # WSL / Linux: builds kept.so + IDL, runs the Rust unit tests
+cd app
+npm run check           # type check and unit tests (offline)
+npm run test:e2e        # Playwright UI tests in mock mode
+npx tsx scripts/smoke-devnet.ts    # end-to-end money path on devnet; requires the dev server
 ```
 
-Deploy and upgrade steps: [`program/README.md`](program/README.md).
+The devnet smoke test funds three wallets that hold no SOL, creates a market, stakes 10 and 15 on Broken and 75 on Kept, proposes Broken, finalizes after the window, and asserts payouts of 40, 60, and 0.
 
-</details>
+Program tests run against devnet; see [`program/README.md`](program/README.md).
 
-<details>
-<summary><b>🔌 API</b></summary>
+```bash
+bash program/build.sh test    # build the program and IDL, run the Rust unit tests
+```
 
-| Endpoint | Purpose |
+## Project structure
+
+```
+app/
+  src/app/              pages and API routes
+  src/chain/            program client, transaction builders, React hooks
+  src/server/           sources, AI, resolver, relay, faucet
+  src/shared/           types, constants, IDL
+  src/wallet/           wallet providers and test wallets
+  scripts/              keys, devnet setup, seed, smoke test
+  tests/                API and Playwright tests
+program/
+  src/lib.rs            Anchor program
+  tests/                program tests
+docs/                   runbook and test checklist
+```
+
+## API
+
+| Endpoint | Description |
 |---|---|
-| `POST /api/draft` | URL or text → source record + AI draft (or a rejection with a reason) |
-| `POST /api/resolve/[id]` · `GET /api/resolve/[id]` | Run the resolver after the deadline · read its research trace |
-| `POST /api/relay` | Co-sign an approved, user-signed Kept transaction as fee payer |
-| `POST /api/faucet` | 100 tUSDC once per wallet |
-| `GET /api/news` | This week's dated public commitments from news search (cached) |
-| `GET/POST /api/actions/stake` · `GET /actions.json` | Solana Actions (Blinks) |
+| `POST /api/draft` | Build a market draft from a URL or text |
+| `POST /api/resolve/[id]` | Run the resolver for a market past its deadline |
+| `GET /api/resolve/[id]` | Read the resolver's research trace |
+| `POST /api/relay` | Co-sign an approved, user-signed transaction |
+| `POST /api/faucet` | Send 100 tUSDC to a new wallet |
+| `GET /api/news` | Recent dated public commitments from news search |
+| `GET /actions.json`, `GET/POST /api/actions/stake` | Solana Actions |
 
-</details>
+## Team
 
----
-
-## 👥 Team
-
-| Lane | Who |
+| Area | Contributor |
 |---|---|
-| P1 · Blockchain (program, devnet setup) | Neil |
-| P2 · Backend + AI | net-bob |
-| P3 · Frontend UI | Noam |
-| P4 · Wallet, chain client, Blinks | aaron |
+| Blockchain program and devnet setup | Neil |
+| Backend and AI | net-bob |
+| Frontend | Noam |
+| Wallet, chain client, and Blinks | aaron |
 
-<sub>Devnet and test tokens only. Kept is a hackathon prototype, not a financial product.</sub>
+## License
+
+[MIT](LICENSE)
