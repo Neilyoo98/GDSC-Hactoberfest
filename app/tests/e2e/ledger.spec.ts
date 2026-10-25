@@ -1,5 +1,6 @@
 // OWNER: P3
 import { test, expect } from '@playwright/test';
+import { accepted, sourceText } from '../fixtures/draft';
 test('filter a promise and inspect its prediction estimate', async ({
   page,
 }) => {
@@ -21,8 +22,16 @@ test('filter a promise and inspect its prediction estimate', async ({
 test('review an editable sample without submitting a transaction', async ({
   page,
 }) => {
+  await page.route('**/api/draft', (route) =>
+    route.fulfill({ json: accepted }),
+  );
   await page.goto('/create');
-  await page.getByRole('button', { name: 'Load sample draft' }).click();
+  await page
+    .getByLabel('Public post URL, article URL, or original text')
+    .fill(sourceText);
+  await page
+    .getByRole('button', { name: 'Generate AI draft', exact: true })
+    .click();
   await page.getByLabel('Exact promise').fill('A sample commitment.');
   await expect(page.getByText('20/240')).toBeVisible();
   await expect(

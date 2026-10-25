@@ -7,7 +7,7 @@ Owner: P4. Order of operations for setup, demo day, and recovery: setup → fund
 2. `cd app && npm i`
 3. Get `app/.env.local` from P2 by private DM (never commit it). It must have:
    `NEXT_PUBLIC_PROGRAM_ID`, `NEXT_PUBLIC_TUSDC_MINT`, `NEXT_PUBLIC_CONFIG_ADMIN`, `NEXT_PUBLIC_FEE_PAYER_PUBKEY`,
-   `FEE_PAYER_SECRET`, `RESOLVER_SECRET`, `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`,
+   `FEE_PAYER_SECRET`, `RESOLVER_SECRET`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `TAVILY_API_KEY`,
    `NEXT_PUBLIC_CHAIN=anchor`, `NEXT_PUBLIC_GASLESS=1`, `DEMO_WALLETS=<pk1>,<pk2>`.
 4. `npm run doctor`: every row should be ✅.
 5. Phantom: Settings → Developer Settings → **Testnet mode on → Solana Devnet**. Accounts: **Wallet A**, **Wallet B**.
@@ -52,7 +52,7 @@ The challenge window must be **30 s**. If it isn't, P1 runs `update_config`.
 | Blockhash expired | Retry. The blockhash is fetched right before signing, so a second try works |
 | Odds bar doesn't move | Refresh. Market pages poll every 3 s, other pages every 10 s |
 | Devnet RPC down / 429 | Put a Helius devnet URL in **both** `SOLANA_RPC_URL` and `NEXT_PUBLIC_SOLANA_RPC_URL`, restart |
-| Claude down | P2 sets `DEMO_CACHE=1` (cached drafts and verdicts) |
+| OpenAI down | P2 sets `DEMO_CACHE=1` (cached drafts and verdicts) |
 | Anchor no-go | `NEXT_PUBLIC_CHAIN=custodial` (P1's fallback) |
 | `Buffer is not defined` | `Providers.tsx` sets `globalThis.Buffer`; make sure the `buffer` package is installed |
 | Tunnel fails | `npx localtunnel --port 3000`, or skip Blinks |
