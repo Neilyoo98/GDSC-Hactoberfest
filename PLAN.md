@@ -454,8 +454,8 @@ app/src/shared/idl/kept.json · kept.ts · constants.ts
 
 | Account | Seeds | Fields |
 |---|---|---|
-| `Config` | `["config"]` | admin, resolver, council `[Pubkey; 3]`, mint, challenge_window (s), bond, market_count, bump |
-| `Market` | `["market", id.to_le_bytes()]` | see struct below |
+| `Config` | `["config", admin]` | admin, resolver, council `[Pubkey; 3]`, mint, challenge_window (s), bond, market_count, bump |
+| `Market` | `["market", config, id.to_le_bytes()]` | see struct below (final version: `program/src/lib.rs`) |
 | Vault (SPL token account) | `["vault", market]`, authority = market PDA | holds every stake and bond for that market |
 | `Position` | `["position", market, user]` | owner, side, amount, claimed, bump |
 
@@ -575,7 +575,9 @@ fn payout(m: &Market, p: &Position) -> u64 {
     ((p.amount as u128) * pool / winners) as u64
 }
 ```
-**Vault signer seeds:** `&[b"market", &m.id.to_le_bytes(), &[m.bump]]`.
+**Vault signer seeds:** `&[b"market", m.config.as_ref(), &m.id.to_le_bytes(), &[m.bump]]`.
+
+> Config is seeded by its admin so Playground tests and the app each get their own config. Clients derive it from `NEXT_PUBLIC_CONFIG_ADMIN` (the fee payer pubkey).
 
 ### Tasks
 
@@ -1032,6 +1034,7 @@ PUBLIC_BASE_URL=             # cloudflared URL, for Blinks
 NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
 NEXT_PUBLIC_PROGRAM_ID=
 NEXT_PUBLIC_TUSDC_MINT=
+NEXT_PUBLIC_CONFIG_ADMIN=     # fee payer pubkey; Config PDA = ["config", admin]
 NEXT_PUBLIC_FEE_PAYER_PUBKEY=
 NEXT_PUBLIC_CHAIN=mock       # mock | anchor | custodial
 NEXT_PUBLIC_GASLESS=1        # 0 = users pay their own (devnet) fees
