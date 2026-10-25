@@ -6,6 +6,7 @@ import './globals.css';
 import './redesign.css';
 import { Providers } from '@/wallet/Providers';
 import { ConnectWallet } from '@/wallet/ConnectWallet';
+import { TestWalletManager } from '@/wallet/TestWalletManager';
 import { SiteNav } from '@/components/kept/SiteNav';
 
 // Serif for headlines and quoted promises; mono for numbers, dates and addresses.
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </Link>
             <SiteNav />
             <div className="header-actions">
+              <TestWalletManager />
               <ConnectWallet />
               <Link className="primary button" href="/create">
                 Track a promise
