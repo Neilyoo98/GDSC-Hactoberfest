@@ -58,7 +58,7 @@ About 3 minutes, all live on devnet. Seeded state is prepared at 16:45 ([§10](#
 | # | Scene | What happens on screen | Layer shown | ~Time |
 |---|---|---|---|---|
 | 1 | **The problem** | Home page: a grid of promises ("Route 1 repaved by spring", "Net zero by 2030") with odds bars, and a promiser card reading *Kept 2 · Broken 1 · Pending 3*. | Experience | 15s |
-| 2 | **Paste a promise** | Paste a real public X post link → the source card appears with the post text and a **fingerprint** (sha256) → Claude's draft fills in: who, exact promise, deadline, Kept/Broken criteria. Then paste a vague post → **rejected with a reason**. | Context → Intelligence | 40s |
+| 2 | **Paste a promise** | Paste a real public X post link → the source card appears with the post text and a **fingerprint** (sha256) → OpenAI's draft fills in: who, exact promise, deadline, Kept/Broken criteria. Then paste a vague post → **rejected with a reason**. | Context → Intelligence | 40s |
 | 3 | **Create** | Edit the deadline → Create → Phantom approves → "Saved on Solana" with an Explorer link. The user paid **0 SOL**. | Orchestration → Settlement | 20s |
 | 4 | **Predict** | Wallet A stakes 10 on Broken, wallet B stakes 75 on Kept (two browser windows). The odds bar moves live. *(COULD: open the Blink on dial.to and stake from there.)* | Settlement | 30s |
 | 5 | **AI resolves** | Open a seeded market whose deadline has passed → "Run resolution" → a research trace streams in (queries, sources found, verdict, confidence 0.86) → proposal is written on-chain → a 30 s challenge ring starts. | Context → Intelligence → Orchestration | 35s |
@@ -93,7 +93,7 @@ Four lanes. Every file has **one** owner, and **each lane writes the tests for i
 | **BACKEND** | | | | |
 | API + domain types `src/shared/types.ts`, `src/shared/apiClient.ts` | – | **owns** | *uses* | *uses* |
 | Context layer `src/server/context/` (oEmbed, Tavily, hashing) | – | **owns** | – | – |
-| Intelligence layer `src/server/intelligence/` (Claude drafter + resolver) | – | **owns** | – | – |
+| Intelligence layer `src/server/intelligence/` (OpenAI drafter + resolver) | – | **owns** | – | – |
 | Orchestration `src/server/orchestrator/` (resolve, relay, faucet, loop) | – | **owns** | – | – |
 | API routes `src/app/api/{draft,resolve,relay,faucet,health}/` | – | **owns** | – | – |
 | Ops scripts `scripts/{keys,doctor,setup-devnet,seed,ai-try}.ts` | helps | **owns** | – | – |
@@ -122,14 +122,14 @@ Four lanes. Every file has **one** owner, and **each lane writes the tests for i
 |---|---|---|---|---|---|
 | Every instruction: happy path + one failure; payout worked example (10 × 100 ÷ 25 = 40) | `program/tests/kept.test.ts` | P1 | Playground **Test** tab | run in Playground | CP1 (core), CP2 (challenge + council) |
 | oEmbed HTML → plain text; same text → same hash | `src/server/context/*.test.ts` | P2 | vitest | `npm test` | CP1 |
-| Drafter rejects vague / private person / harm; foreign citations dropped; confidence 0.65 → council | `src/server/intelligence/*.test.ts` (recorded Claude responses, no live calls) | P2 | vitest | `npm test` | CP2 |
+| Drafter rejects vague / private person / harm; foreign citations dropped; confidence 0.65 → council | `src/server/intelligence/*.test.ts` (recorded model responses, no live calls) | P2 | vitest | `npm test` | CP2 |
 | Relay refuses wrong fee payer, SystemProgram transfer, unknown program | `src/server/orchestrator/relay.test.ts` | P2 | vitest | `npm test` | CP2 |
 | Every `/api/*` returns the `types.ts` shape; bad input → 400 | `tests/api/*.test.ts` | P2 | vitest against `npm run dev` | `npm run test:api` | CP2 |
 | Payout mirror: 40; void refund; nobody on the winning side → refund | `src/chain/payout.test.ts` | P4 | vitest | `npm test` | CP1 |
 | Account decoding: base units ÷ 1e6, enums → strings, default pubkey → `null` | `src/chain/read.test.ts` | P4 | vitest | `npm test` | CP2 |
 | Real devnet: faucet → create → 3 stakes → propose → wait → finalize → claim = +40 | `scripts/smoke-devnet.ts` | P4 | tsx | `npm run smoke:devnet` | **CP2 (this is the gate)** |
 | UI in mock mode: create (accept + reject), stake, every resolution state, claim | `tests/e2e/*.spec.ts` | P3 | Playwright + burner wallet | `npm run test:e2e` | CP3 |
-| Env, keys, RPC, SOL balances, Claude + Tavily reachable | `scripts/doctor.ts` | P2 | tsx | `npm run doctor` | CP0 |
+| Env, keys, RPC, SOL balances, OpenAI + Tavily reachable | `scripts/doctor.ts` | P2 | tsx | `npm run doctor` | CP0 |
 | Wallet states, wrong network, stake 1 and 100, 101 rejected, projector size, dark mode | `docs/TEST_CHECKLIST.md` | P3 | a person | — | CP3 |
 
 `npm run check` (`tsc --noEmit && vitest run`) runs every unit test and must pass before **every** merge. At each checkpoint, P4 runs `smoke:devnet`, P2 runs `test:api`, P3 runs `test:e2e`, and each posts the result in chat.
@@ -168,8 +168,8 @@ Four lanes. Every file has **one** owner, and **each lane writes the tests for i
 └──────────▲───────────────────────────────▲─────────────────────────────────────▲─────────────────────┘
            │                               │                                     │
 ┌──────────┴───── CONTEXT (P2) ─────┐ ┌────┴──── INTELLIGENCE (P2) ──────┐ ┌───────┴──── SETTLEMENT (P1) ────┐
-│ X oEmbed → SourceDoc              │ │ Claude drafter  → DraftResult    │ │ Anchor program (devnet)         │
-│ Tavily search/extract → Evidence  │→│ Claude resolver → Verdict        │ │ Config · Market · Vault · Position│
+│ X oEmbed → SourceDoc              │ │ OpenAI drafter  → DraftResult    │ │ Anchor program (devnet)         │
+│ Tavily search/extract → Evidence  │→│ OpenAI resolver → Verdict        │ │ Config · Market · Vault · Position│
 │ sha256 fingerprints               │ │ zod schemas · guardrails         │ │ tUSDC SPL mint (6 decimals)     │
 │ chain reads (markets, positions)  │ │ confidence gate ≥ 0.7            │ │ the ONLY thing that moves money │
 └───────────────────────────────────┘ └──────────────────────────────────┘ └─────────────────────────────────┘
@@ -181,8 +181,8 @@ Four lanes. Every file has **one** owner, and **each lane writes the tests for i
 
 | Layer | Can call | Must never | Testable how |
 |---|---|---|---|
-| **Context** | HTTP (oEmbed, Tavily), RPC reads | Call Claude, sign anything | Unit tests with recorded HTTP fixtures |
-| **Intelligence** | Claude only | Fetch URLs, touch the chain, read env keys other than `ANTHROPIC_API_KEY` | **Pure function:** `(SourceDoc) → DraftResult`, `(Market, EvidencePack) → Verdict`. Test with fixture inputs. |
+| **Context** | HTTP (oEmbed, Tavily), RPC reads | Call OpenAI, sign anything | Unit tests with recorded HTTP fixtures |
+| **Intelligence** | OpenAI only | Fetch URLs, touch the chain, read env keys other than `OPENAI_API_KEY` | **Pure function:** `(SourceDoc) → DraftResult`, `(Market, EvidencePack) → Verdict`. Test with fixture inputs. |
 | **Orchestration** | Context, Intelligence, `src/chain/tx.ts` builders, server keys | Contain prompt text or account layouts | `curl` the routes; dry-run flag skips the on-chain send |
 | **Settlement** | Nothing off-chain | Trust anything not signed: the resolver key, council keys and users are checked on-chain | Playground mocha tests |
 | **Experience** | Hooks + `apiClient` only | Import from `src/server/**` or hold secrets | Mock mode (`NEXT_PUBLIC_CHAIN=mock`) |
@@ -242,7 +242,7 @@ GDSC-Hactoberfest/
     ├── instrumentation.ts             [BE]     P2     starts the resolver loop when RESOLVER_LOOP=1
     ├── scripts/
     │   ├── keys.ts                    [BE]     P2     generate fee-payer and resolver keypairs
-    │   ├── doctor.ts                  [BE]     P2     env, RPC, SOL balances, Claude, Tavily → ✅/❌ table
+    │   ├── doctor.ts                  [BE]     P2     env, RPC, SOL balances, OpenAI, Tavily → ✅/❌ table
     │   ├── setup-devnet.ts            [BE]     P2     tUSDC mint, initialize_config, fund demo wallets
     │   ├── seed.ts                    [BE]     P2     demo markets (one past its deadline at demo time)
     │   ├── ai-try.ts                  [BE]     P2     `npm run ai:try -- <url>` runs context + AI in the terminal
@@ -259,9 +259,9 @@ GDSC-Hactoberfest/
         │   └── idl/kept.json, kept.ts [BC]     P1     exported from Playground
         ├── server/                    [BE]     P2     server-only (`import "server-only"`)
         │   ├── context/                               oembed.ts · tavily.ts · hash.ts · evidence.ts (+ *.test.ts)
-        │   ├── intelligence/                          claude.ts · schemas.ts · prompts.ts · drafter.ts · resolver.ts (+ *.test.ts)
+        │   ├── intelligence/                          openai.ts · schemas.ts · prompts.ts · drafter.ts · resolver.ts (+ *.test.ts)
         │   ├── orchestrator/                          resolveMarket.ts · loop.ts · relay.ts · faucet.ts · keys.ts · trace.ts (+ relay.test.ts)
-        │   └── fixtures/                              cached drafts, evidence, verdicts, recorded Claude responses
+        │   └── fixtures/                              cached drafts, evidence, verdicts, recorded model responses
         ├── chain/                     [FE]     P4     isomorphic chain client
         │   ├── index.ts                        P4     KeptChain interface + factory (mock | anchor | custodial)
         │   ├── anchor.ts                       P4     real implementation from the IDL
@@ -397,7 +397,7 @@ export interface FaucetRequest { wallet: string; }                              
 | `GET /api/resolve/[id]` | P2 | → `{ trace: TraceStep[], citations }` | In-memory only (non-authoritative; the chain has the summary + sources) |
 | `POST /api/relay` | P2 | `RelayRequest` → `{ signature }` | Validates, co-signs as fee payer, sends |
 | `POST /api/faucet` | P2 | `FaucetRequest` → `{ signature, amount: 100 }` | Creates the ATA (fee payer pays rent) + mints 100 tUSDC. "Once" = refuse if the ATA already exists |
-| `GET /api/health` | P2 | → `{ rpc, claude, tavily, feePayerSol, programId }` | Used by `doctor.ts` |
+| `GET /api/health` | P2 | → `{ rpc, openai, tavily, feePayerSol, programId }` | Used by `doctor.ts` |
 | `GET/POST /api/actions/stake?market=&side=&amount=` | P4 | Solana Actions spec | Blinks |
 | `GET /actions.json` | P4 | Actions rules | Blinks discovery |
 
@@ -628,7 +628,7 @@ app/tests/api/**          (tests)  src/server/**/*.test.ts
 | `oembed.ts` | `fetchXPost(url) → SourceDoc` | `GET https://publish.twitter.com/oembed?url=<post>&omit_script=1&dnt=true`. Take `author_name` and `author_url`. Strip tags from `html` and take the `<p>` text; the last `<a>` is the date. No auth needed; single public posts only. |
 | `tavily.ts` | `search(q) → EvidenceItem[]`, `extract(url) → SourceDoc` | `import { tavily } from "@tavily/core"`. `search(q, { searchDepth: "advanced", maxResults: 5, topic: "news" })`. Use `extract([url])` for article links. |
 | `hash.ts` | `sha256Hex(text)` | Node `crypto`. Hash the **normalized** text (trim, collapse whitespace) so the same post always gives the same fingerprint. |
-| `evidence.ts` | `gatherEvidence(market) → EvidencePack` | **Code builds the queries, not Claude** (deterministic and fast): `"{promiser} {key nouns of promise}"`, `"{promiser} {checkSource}"`, `"{promise keywords} {deadline year}"`. Dedupe by URL, keep the top 8, hash the pack. |
+| `evidence.ts` | `gatherEvidence(market) → EvidencePack` | **Code builds the queries, not the model** (deterministic and fast): `"{promiser} {key nouns of promise}"`, `"{promiser} {checkSource}"`, `"{promise keywords} {deadline year}"`. Dedupe by URL, keep the top 8, hash the pack. |
 
 ### 7.2 Intelligence layer: `src/server/intelligence/`
 
@@ -636,29 +636,14 @@ Two pure functions, with schemas checked twice: once by structured outputs and o
 
 | Call | Model | Effort | Input | Output schema |
 |---|---|---|---|---|
-| `draftMarket(doc)` | `claude-opus-5-5` | `low` (speed matters on stage) | `SourceDoc` + today's date | `DraftResponse` minus `source` |
-| `judgeMarket(market, pack)` | `claude-opus-5-5` | `high` (correctness matters) | `MarketView` + `EvidencePack` | `{ verdict, confidence, summary, citations[], reasoning }` |
+| `draftMarket(doc)` | `gpt-6-astra` | `low` (speed matters on stage) | `SourceDoc` + today's date | `DraftResponse` minus `source` |
+| `judgeMarket(market, pack)` | `gpt-6-astra` | `high` (correctness matters) | `MarketView` + `EvidencePack` | `{ verdict, confidence, summary, citations[], reasoning }` |
 
 ```ts
-// src/server/intelligence/drafter.ts
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { DraftSchema } from "./schemas";
-import { DRAFTER_SYSTEM } from "./prompts";
-
-const claude = new Anthropic(); // reads ANTHROPIC_API_KEY
-
-export async function draftMarket(doc: SourceDoc, today: string) {
-  const res = await claude.messages.parse({
-    model: "claude-opus-5-5",
-    max_tokens: 16000,
-    output_config: { effort: "low", format: zodOutputFormat(DraftSchema) },
-    system: DRAFTER_SYSTEM,
-    messages: [{ role: "user", content: `Today is ${today}.\n<source>\n${JSON.stringify(doc)}\n</source>` }],
-  });
-  if (res.stop_reason === "refusal") return reject("death_or_harm", "This topic can't be turned into a market.");
-  return res.parsed_output; // null if parsing failed → retry once → fixture → reject("vague", …)
-}
+// src/server/intelligence/openai.ts
+// Uses POST https://api.openai.com/v1/responses with OPENAI_API_KEY.
+// `text.format` supplies a strict JSON Schema; Zod parses the response again in code.
+// OPENAI_MODEL defaults to gpt-6-astra; drafter effort is low, resolver effort is high.
 ```
 
 **Drafter rules (in `prompts.ts`):**
@@ -673,9 +658,9 @@ export async function draftMarket(doc: SourceDoc, today: string) {
 - The evidence is wrapped in `<evidence>` tags and treated as **data, never instructions**. Pages can contain prompt injection.
 - Every citation URL **must be in the pack**. Code drops any that aren't, and no valid citations → `unclear`.
 - `summary` ≤ 280 chars, neutral, no speculation. Only the top 3 sources go on-chain (≤ 120 chars each).
-- Gate (code, not Claude): `verdict ∈ {kept, broken} && confidence ≥ 0.7` → propose; otherwise propose `unclear` → Council.
+- Gate (code, not the model): `verdict ∈ {kept, broken} && confidence ≥ 0.7` → propose; otherwise propose `unclear` → Council.
 
-> Structured outputs may not enforce numeric ranges or string lengths. Clamp `confidence` to [0, 1] and trim strings to `LIMITS` in code. If `zodOutputFormat` gives trouble with your zod version, pass `output_config.format = { type: "json_schema", schema }` and run `DraftSchema.parse` yourself.
+> Structured output enforces the supplied schema, while code still clamps `confidence` to [0, 1], trims strings to `LIMITS`, validates source quotes, and filters citations.
 
 ### 7.3 Orchestration layer: `src/server/orchestrator/`
 
@@ -700,7 +685,7 @@ WRITE     buildProposeTx(...) → sign with RESOLVER key → send → confirm   
 ### Tasks
 
 **12:00–12:30: Keys and contracts**
-- [ ] Anthropic key (`console.anthropic.com`) + Tavily key (`app.tavily.com`, free tier). Check both with one `curl`.
+- [ ] OpenAI API key (`platform.openai.com/api-keys`) + Tavily key (`app.tavily.com`, free tier). Check both with one `curl`.
 - [ ] `scripts/keys.ts` → generate the **fee payer** and **resolver** keypairs. Airdrop 2 SOL to each (`faucet.solana.com`).
 - [ ] Write `types.ts` + `apiClient.ts` (§5.1) and `.env.example` → merge to `main` by **12:30**.
 - [ ] Send `.env.local` to the team by private DM.
@@ -710,7 +695,7 @@ WRITE     buildProposeTx(...) → sign with RESOLVER key → send → confirm   
 - [ ] `oembed.ts`, `tavily.ts`, `hash.ts`, `evidence.ts`
 - [ ] `schemas.ts`, `prompts.ts`, `drafter.ts`, `resolver.ts`
 - [ ] `scripts/ai-try.ts`: `npm run ai:try -- <url>` prints SourceDoc → DraftResponse. Run all 3 demo URLs. Then `npm run ai:try -- --resolve fixtures/market-a.json` prints EvidencePack → verdict.
-- [ ] `POST /api/draft` live, with `DEMO_CACHE=1` returning `fixtures/drafts/<sha>.json` if Claude fails
+- [ ] `POST /api/draft` live, with `DEMO_CACHE=1` returning `fixtures/drafts/<sha>.json` if OpenAI fails
 - [ ] Save every good live response into `fixtures/` as you go. These are your stage fallback.
 
 **14:00–15:30: Orchestration + devnet setup**
@@ -718,7 +703,7 @@ WRITE     buildProposeTx(...) → sign with RESOLVER key → send → confirm   
 - [ ] `faucet.ts` + `POST /api/faucet`; `relay.ts` + `POST /api/relay` (pair with P4 on the first relayed stake)
 - [ ] `resolveMarket.ts` + `POST/GET /api/resolve/[id]` using P4's `buildProposeTx`
 - [ ] `relay.test.ts`: refuses a tx whose fee payer isn't ours, one containing a SystemProgram transfer, and one calling an unknown program
-- [ ] `scripts/doctor.ts` → `npm run doctor` prints a ✅/❌ table: env vars, RPC, SOL balances, Claude ping, Tavily ping, program account exists
+- [ ] `scripts/doctor.ts` → `npm run doctor` prints a ✅/❌ table: env vars, RPC, SOL balances, OpenAI ping, Tavily ping, program account exists
 
 **15:30–16:45: Quality + loop**
 - [ ] `loop.ts` + `instrumentation.ts`
@@ -979,8 +964,8 @@ git push -u origin p2/context-layer                    # 4. push the branch
 | Phantom extension, **devnet** | all | phantom.app → Settings → Developer Settings → Testnet Mode | burner wallet (`wallet/burner.ts`) |
 | Devnet SOL | P1 (5), P2 (2+2) | faucet.solana.com (GitHub login) | teammates send theirs; ask in the MLH/Solana booth |
 | Solana Playground | P1 | beta.solpg.io | custodial fallback |
-| Anthropic API key | P2 | console.anthropic.com | fixtures (`DEMO_CACHE=1`) |
-| Tavily API key | P2 | app.tavily.com (free tier) | Claude's web search tool, then fixtures |
+| OpenAI API key | P2 | platform.openai.com/api-keys | fixtures (`DEMO_CACHE=1`) |
+| Tavily API key | P2 | app.tavily.com (free tier) | cached evidence fixtures |
 | cloudflared | P4 | `winget install --id Cloudflare.cloudflared` · mac: `brew install cloudflared` | `npx localtunnel --port 3000` or ngrok |
 | Devnet RPC | P2/P4 | default `https://api.devnet.solana.com` | a free Helius devnet RPC key if you hit 429s |
 | Solana Explorer | all | `explorer.solana.com/?cluster=devnet` | Solscan devnet |
@@ -997,7 +982,7 @@ npx shadcn@latest init -d
 npx shadcn@latest add button card badge input textarea dialog tabs progress tooltip separator skeleton table sonner
 npm i @solana/web3.js@1 @solana/spl-token @coral-xyz/anchor@0.30.1 \
       @solana/wallet-adapter-base @solana/wallet-adapter-react @solana/wallet-adapter-react-ui \
-      @solana/actions @anthropic-ai/sdk @tavily/core zod bs58 lucide-react server-only
+      @solana/actions @tavily/core zod bs58 lucide-react server-only
 npm i -D tsx vitest prettier @playwright/test
 npx playwright install chromium
 ```
@@ -1020,13 +1005,14 @@ npx playwright install chromium
 
 ```bash
 # Server only, never NEXT_PUBLIC_
-ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-6-astra
 TAVILY_API_KEY=
 SOLANA_RPC_URL=https://api.devnet.solana.com
 FEE_PAYER_SECRET=            # JSON byte array; also tUSDC mint authority and config admin
 RESOLVER_SECRET=             # JSON byte array; the AI proposer key in Config
 DEMO_MODE=1                  # relaxes the draft "deadline must be future" check for seeding
-DEMO_CACHE=0                 # 1 = serve fixtures when Claude/Tavily fail
+DEMO_CACHE=0                 # 1 = serve fixtures when OpenAI/Tavily fail
 RESOLVER_LOOP=0              # 1 = background resolver loop
 PUBLIC_BASE_URL=             # cloudflared URL, for Blinks
 
@@ -1060,9 +1046,9 @@ npm run tunnel                                                # P4 only, for Bli
 | Devnet RPC 429 / slow | Helius free devnet RPC in both RPC env vars; slow polling to 5 s | P4 | 5 min |
 | Phantom rejects the partially signed tx / relay fails | `NEXT_PUBLIC_GASLESS=0` and pre-fund demo wallets with 1 devnet SOL each | P4 | 2 min |
 | Phantom broken on a laptop | Burner wallet | P4 | 0 |
-| Claude slow or down | `DEMO_CACHE=1` serves saved drafts and verdicts for the demo promises | P2 | 0 |
-| Claude refuses (`stop_reason: "refusal"`) | Drafter → reject `death_or_harm`; resolver → `unclear` → council | P2 | built in |
-| Tavily fails | Swap `gatherEvidence` to Claude's server-side web search tool (`web_search_20260209`) in the resolver call; then fixtures | P2 | 20 min |
+| OpenAI slow or down | `DEMO_CACHE=1` serves saved drafts and verdicts for the demo promises | P2 | 0 |
+| OpenAI refuses | Drafter → reject `death_or_harm`; resolver → `unclear` → council | P2 | built in |
+| Tavily fails | Use cached evidence fixtures | P2 | 0 |
 | X oEmbed fails / post deleted | "Paste text instead": `DraftRequest.text`, kind `text`, still hashed | P3 + P2 | 0 |
 | Blink doesn't unfurl on X | Open via dial.to; show the X post as the story | P4 | 0 |
 | cloudflared fails | `npx localtunnel --port 3000` or ngrok; or skip Blinks | P4 | 5 min |
