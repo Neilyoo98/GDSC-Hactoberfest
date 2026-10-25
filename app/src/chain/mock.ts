@@ -2,7 +2,6 @@
 import type { KeptChain } from "./index";
 import type { PositionView } from "@/shared/types";
 import { FIXTURES } from "./fixtures";
-import { payout } from "./payout";
 import { MIN_STAKE, MAX_STAKE, LIMITS } from "../shared/constants";
 
 const markets = structuredClone(FIXTURES);
@@ -92,7 +91,7 @@ export const mockChain: KeptChain = {
     const p = positions.find((x) => x.market === id && x.owner === w.publicKey.toBase58());
     if (!p) throw new Error("NoPosition");
     if (p.claimed) throw new Error("AlreadyClaimed");
-    if (payout(m, p) === 0) throw new Error("NotWinner");
+    // Like the program: a losing position "claims" 0 (marked claimed, nothing moves).
     p.claimed = true;
     return sig();
   },
