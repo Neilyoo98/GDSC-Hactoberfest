@@ -2,8 +2,16 @@
 
 A public record of promises on Solana. Paste a promise from the news, turn it into a yes-or-no market with a deadline, let people back Kept or Broken with test USDC, and settle the result on-chain.
 
+![Kept: a promise from the news becomes a yes-or-no market with a deadline; people back Kept or Broken; the result settles on Solana](assets/hero.svg)
+
+[![Solana](https://img.shields.io/badge/Solana-devnet-14F195?logo=solana&logoColor=black)](https://explorer.solana.com/address/GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap?cluster=devnet)
+[![Anchor](https://img.shields.io/badge/Anchor-0.31-512DA8)](https://www.anchor-lang.com/)
+[![Rust](https://img.shields.io/badge/Rust-program-000000?logo=rust&logoColor=white)](program/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-API-412991?logo=openai&logoColor=white)](https://platform.openai.com/)
+[![Tavily](https://img.shields.io/badge/Tavily-search-0EA5E9)](https://tavily.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Solana devnet](https://img.shields.io/badge/solana-devnet-black.svg)](https://explorer.solana.com/address/GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap?cluster=devnet)
 
 Built at Hacktoberfest 2026 (GDSC × MLH) at the University of Maryland.
 
@@ -155,7 +163,14 @@ app/
 program/
   src/lib.rs            Anchor program
   tests/                program tests
-docs/                   runbook and test checklist
+  build.sh              build and test the program in WSL or Linux
+docs/
+  RUNBOOK.md            setup, demo reset, troubleshooting
+  TEST_CHECKLIST.md     manual checks before a demo
+  PLAN.md               the hackathon build plan
+  archive/              past PR notes and debugging reviews
+assets/                 README images
+CLAUDE.md               team rules and roles for Claude Code
 ```
 
 ## API
