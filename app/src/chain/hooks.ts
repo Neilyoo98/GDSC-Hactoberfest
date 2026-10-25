@@ -42,10 +42,14 @@ export function useMarket(id: number) {
   const load = useCallback(() => chain.getMarket(id), [id]);
   return usePolled<MarketView | null>(load, POLL_MARKET_MS);
 }
-export function usePositions(f?: { owner?: string; market?: number }) {
+export function usePositions(f?: { owner?: string; market?: number; enabled?: boolean }) {
   const owner = f?.owner;
   const market = f?.market;
-  const load = useCallback(() => chain.listPositions({ owner, market }), [owner, market]);
+  const enabled = f?.enabled ?? true;
+  const load = useCallback(
+    () => enabled ? chain.listPositions({ owner, market }) : Promise.resolve([]),
+    [owner, market, enabled],
+  );
   return usePolled<PositionView[]>(load, market !== undefined ? POLL_MARKET_MS : POLL_LIST_MS);
 }
 
