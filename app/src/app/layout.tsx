@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import './globals.css';
 import { Providers } from '@/wallet/Providers';
+import { ConnectWallet } from '@/wallet/ConnectWallet';
 export const metadata: Metadata = {
   title: 'Kept — A public record of promises',
   description:
@@ -23,6 +24,7 @@ export default function RootLayout({
               kept.
             </Link>
             <span className="demo-label">Demo · Test tokens only</span>
+            <ConnectWallet />
             <Link className="primary button" href="/create">
               + Add a promise
             </Link>

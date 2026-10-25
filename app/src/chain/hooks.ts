@@ -15,13 +15,15 @@ const POLL_LIST_MS = 10_000;
 const listeners = new Set<() => void>();
 const refreshAll = () => listeners.forEach((f) => f());
 
-function usePolled<T>(load: () => Promise<T>, deps: unknown[], every: number) {
+function usePolled<T>(load: () => Promise<T>, every: number) {
   const [data, setData] = useState<T | undefined>();
   const [error, setError] = useState<Error | null>(null);
   const reload = useCallback(() => {
-    load().then((d) => { setData(d); setError(null); }, (e) => setError(e));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+    load().then(
+      (value) => { setData(value); setError(null); },
+      (cause: unknown) => setError(cause instanceof Error ? cause : new Error('Could not load chain data.')),
+    );
+  }, [load]);
   useEffect(() => {
     reload();
     listeners.add(reload);
@@ -31,10 +33,20 @@ function usePolled<T>(load: () => Promise<T>, deps: unknown[], every: number) {
   return { data, error, loading: data === undefined && !error, reload };
 }
 
-export const useMarkets = () => usePolled<MarketView[]>(() => chain.listMarkets(), [], POLL_LIST_MS);
-export const useMarket = (id: number) => usePolled<MarketView | null>(() => chain.getMarket(id), [id], POLL_MARKET_MS);
-export const usePositions = (f?: { owner?: string; market?: number }) =>
-  usePolled<PositionView[]>(() => chain.listPositions(f), [f?.owner, f?.market], f?.market !== undefined ? POLL_MARKET_MS : POLL_LIST_MS);
+export function useMarkets() {
+  const load = useCallback(() => chain.listMarkets(), []);
+  return usePolled<MarketView[]>(load, POLL_LIST_MS);
+}
+export function useMarket(id: number) {
+  const load = useCallback(() => chain.getMarket(id), [id]);
+  return usePolled<MarketView | null>(load, POLL_MARKET_MS);
+}
+export function usePositions(f?: { owner?: string; market?: number }) {
+  const owner = f?.owner;
+  const market = f?.market;
+  const load = useCallback(() => chain.listPositions({ owner, market }), [owner, market]);
+  return usePolled<PositionView[]>(load, market !== undefined ? POLL_MARKET_MS : POLL_LIST_MS);
+}
 
 /** Toasts: Waiting for wallet → Confirmed ↗ Explorer, or the error. */
 async function run<T>(label: string, fn: () => Promise<T>, sigOf: (r: T) => string): Promise<T> {
@@ -48,15 +60,18 @@ async function run<T>(label: string, fn: () => Promise<T>, sigOf: (r: T) => stri
     });
     refreshAll();
     return r;
-  } catch (e: any) {
-    toast.error(`${label} failed`, { id, description: friendly(e) });
-    throw e;
+  } catch (cause: unknown) {
+    toast.error(`${label} failed`, { id, description: friendly(cause) });
+    throw cause;
   }
 }
 
 /** Program error names come from the IDL (program/README.md). */
-function friendly(e: any): string {
-  const msg = String(e?.error?.errorCode?.code ?? e?.message ?? e);
+function friendly(cause: unknown): string {
+  const root = typeof cause === 'object' && cause !== null ? cause as Record<string, unknown> : {};
+  const nested = typeof root.error === 'object' && root.error !== null ? root.error as Record<string, unknown> : {};
+  const errorCode = typeof nested.errorCode === 'object' && nested.errorCode !== null ? nested.errorCode as Record<string, unknown> : {};
+  const msg = String(errorCode.code ?? root.message ?? cause);
   if (/User rejected/i.test(msg)) return "You cancelled in your wallet.";
   if (/StakeOutOfRange/.test(msg)) return "Stake must be between 1 and 100 tUSDC.";
   if (/already in use|AlreadyStaked/.test(msg)) return "You already have a stake on this market.";
