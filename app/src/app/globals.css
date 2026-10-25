@@ -2,16 +2,20 @@
 /* OWNER: P3 */
 :root {
   color-scheme: light;
-  --paper: #fff;
-  --card: #fff;
-  --ink: #192d2a;
-  --muted: #647670;
-  --line: #e3ebe6;
-  --accent: #276b52;
-  --accent-soft: #edf6ef;
-  --kept: #22734e;
-  --broken: #b34d43;
-  --focus: #2563eb;
+  /* Paper and ink: a printed public record, not a dashboard. */
+  --paper: #f6f4ee;
+  --card: #fffdf8;
+  --ink: #18201d;
+  --muted: #5d6762; /* 5.6:1 on paper */
+  --line: #dcd7cb;
+  --rule: #18201d;
+  --accent: #1f5f45;
+  --accent-soft: #e7efe8;
+  --kept: #1d6b47; /* 5.9:1 on paper */
+  --broken: #a33a2c; /* 6.0:1 on paper */
+  --focus: #1d4ed8;
+  --radius: 4px;
+  --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -20,10 +24,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font:
-    16px/1.6 Arial,
-    Helvetica,
-    sans-serif;
+  font: 16px/1.55 var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 a {

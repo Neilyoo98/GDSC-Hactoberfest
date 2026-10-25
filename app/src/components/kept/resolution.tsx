@@ -3,7 +3,6 @@
 // Live resolution UI on P4's hooks: AI proposal → challenge window → council → claim.
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useKeptActions, useMarket, useMarkets, usePositions } from '@/chain/hooks';
 import { BOND } from '@/shared/constants';
 import type { MarketView, Outcome } from '@/shared/types';
@@ -167,7 +166,7 @@ export function ResolutionPanel({ marketId }: { marketId: number }) {
         </>
       )}
 
-      {!actions.wallet && <WalletMultiButton />}
+      {!actions.wallet && <p className="rail-note">Connect a wallet (top right) to act on this market.</p>}
     </aside>
   );
 }
@@ -184,7 +183,7 @@ export function CouncilInbox() {
 
   return (
     <>
-      {!actions.wallet && <WalletMultiButton />}
+      {!actions.wallet && <p className="rail-note">Connect a council wallet (top right) to vote.</p>}
       {inbox.length === 0 ? (
         <p className="muted">Nothing waiting for the council right now.</p>
       ) : (
