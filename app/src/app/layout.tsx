@@ -20,16 +20,16 @@ export default function RootLayout({
           </a>
           <header>
             <Link href="/" className="brand">
-              kept.
+              kept<span className="brand-dot">.</span>
             </Link>
-            <span className="demo-label">Demo · Test tokens only</span>
+            <span className="demo-label">Demo / Test tokens only</span>
             <Link className="primary button" href="/create">
               + Add a promise
             </Link>
           </header>
           <main id="main">{children}</main>
           <footer>
-            <span>Sample promises · Solana devnet</span>
+            <span>A promise deserves a follow-up.</span>
             <nav aria-label="More pages">
               <Link href="/faucet">Test tokens</Link>
               <Link href="/council">Council</Link>

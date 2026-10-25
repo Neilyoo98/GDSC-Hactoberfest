@@ -35,6 +35,6 @@ test('review an editable sample without submitting a transaction', async ({
   await page.getByLabel('Exact promise').fill('A sample commitment.');
   await expect(page.getByText('20/240')).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Create on Solana' }),
+    page.getByRole('button', { name: 'Publish promise' }),
   ).toBeDisabled();
 });

@@ -50,20 +50,20 @@ export default async function Market({
           </div>
           <OddsBar market={market} />
           <p className="muted">
-            Fictional UI fixture. Source URL, SHA-256 fingerprint, and Explorer
-            receipt await real source data.
+            This is a sample promise. Predictions and outcomes shown here are
+            for the demo.
           </p>
         </article>
         <StakePanel market={market} />
       </div>
       <ResolutionPanel marketId={Number(id)} />
       <section className="explainer">
-        <h2>Public record timeline</h2>
+        <h2>What happens next</h2>
         <p>
           Recorded → Deadline → Evidence review → Challenge window → Final
           result
         </p>
-        <p className="muted">This preview does not write to Solana.</p>
+        <p className="muted">Demo only. No real money is involved.</p>
       </section>
     </>
   );
