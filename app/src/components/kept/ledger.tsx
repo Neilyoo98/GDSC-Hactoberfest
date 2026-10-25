@@ -5,13 +5,26 @@ import { useEffect, useState } from 'react';
 import type { MarketView, Outcome, Side } from '@/shared/types';
 import { useMarkets, useKeptActions, usePositions } from '@/chain/hooks';
 import { ConnectWallet } from '@/wallet/ConnectWallet';
+import { ShareBet } from './ShareBet';
 
 const handleFor = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, '');
 
+const STATUS_LABEL: Record<string, string> = {
+  open: 'Open',
+  proposed: 'AI proposed',
+  challenged: 'Challenged',
+  council: 'Council review',
+  finalized: 'Settled',
+  void: 'Void · refunded',
+};
 export function StatusChip({ status }: { status: string }) {
-  return <span className={`chip ${status.toLowerCase()}`}>● {status}</span>;
+  const key = status.toLowerCase();
+  return <span className={`chip ${key}`}>{STATUS_LABEL[key] ?? status}</span>;
 }
+
+/** Markets created by scripts/smoke-devnet.ts on the shared devnet config; not shown to visitors. */
+export const isListed = (m: MarketView) => m.promiser !== '@SmokeTest';
 export function OddsBar({ market }: { market: MarketView }) {
   const total = market.totals.kept + market.totals.broken;
   const odds = total ? Math.round((market.totals.kept / total) * 100) : 50;
@@ -45,11 +58,66 @@ export function MarketCard({ market }: { market: MarketView }) {
     </article>
   );
 }
+/** One promise as a ledger row: who, what, when, and where the money sits. */
+export function LedgerRow({ market }: { market: MarketView }) {
+  const total = market.totals.kept + market.totals.broken;
+  const kept = total ? Math.round((market.totals.kept / total) * 100) : null;
+  const settled = market.status === 'finalized' || market.status === 'void';
+  return (
+    <li className="ledger-row">
+      <div className="ledger-main">
+        <p className="ledger-meta">
+          <Link href={`/promisers/${handleFor(market.promiser)}`}>{market.promiser}</Link>
+          <StatusChip status={market.status} />
+        </p>
+        <Link href={`/markets/${market.id}`} className="ledger-quote">
+          “{market.promiseText}”
+        </Link>
+        <p className="ledger-deadline">
+          due <time dateTime={new Date(market.deadline * 1000).toISOString()}>
+            {new Date(market.deadline * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          </time>
+        </p>
+      </div>
+      <div className="ledger-odds" aria-label={kept === null ? 'No predictions yet' : `${kept}% Kept, ${100 - kept}% Broken, ${total} tUSDC staked`}>
+        {settled && market.final ? (
+          <p className={`ledger-result ${market.final}`}>{market.final === 'kept' ? '✓ Kept' : market.final === 'broken' ? '✕ Broken' : '○ Void'}</p>
+        ) : kept === null ? (
+          <p className="ledger-empty">No predictions yet</p>
+        ) : (
+          <>
+            <p className="ledger-pct">
+              <span className="positive">{kept}%</span> kept
+            </p>
+            <div className="odds" aria-hidden="true">
+              <span style={{ width: `${kept}%` }} />
+            </div>
+          </>
+        )}
+        <p className="ledger-pool">{total.toLocaleString('en-US')} tUSDC</p>
+      </div>
+    </li>
+  );
+}
+
+const FILTERS = ['All', 'Open', 'Resolving', 'Settled'] as const;
+/** Fetches on its own. On the home page use MarketList with shared data instead (one RPC poll, not two). */
 export function MarketGrid() {
-  const [filter, setFilter] = useState('All promises');
-  const { data: markets, error, loading } = useMarkets();
-  const filtered = (markets ?? []).filter((m) =>
-    filter === 'All promises' ||
+  const { data, error, loading } = useMarkets();
+  return <MarketList markets={data} error={error} loading={loading} />;
+}
+export function MarketList({
+  markets,
+  error,
+  loading,
+}: {
+  markets: MarketView[] | undefined;
+  error: Error | null;
+  loading: boolean;
+}) {
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
+  const filtered = (markets ?? []).filter(isListed).filter((m) =>
+    filter === 'All' ||
     (filter === 'Resolving'
       ? ['proposed', 'challenged', 'council'].includes(m.status)
       : filter === 'Settled'
@@ -58,30 +126,39 @@ export function MarketGrid() {
   );
   return (
     <>
-      <div className="filter-row">
-        <label className="sr-only" htmlFor="promise-filter">
-          Filter promises
-        </label>
-        <select
-          id="promise-filter"
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-        >
-          {['All promises', 'Open', 'Resolving', 'Settled'].map((item) => (
-            <option key={item}>{item}</option>
-          ))}
-        </select>
-      </div>
-      {loading && <p role="status">Loading on-chain promises…</p>}
-      {error && <p role="alert" className="negative">Could not load promises: {error.message}</p>}
-      {!loading && !error && filtered.length === 0 && (
-        <p className="muted">No promises match this filter yet.</p>
-      )}
-      <div className="grid">
-        {filtered.map((m) => (
-          <MarketCard key={m.id} market={m} />
+      <div className="tabs" role="group" aria-label="Filter promises">
+        {FILTERS.map((f) => (
+          <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>
+            {f}
+          </button>
         ))}
       </div>
+      {loading && (
+        <ol className="ledger" aria-busy="true" aria-label="Loading promises">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="ledger-row skeleton">
+              <span />
+              <span />
+            </li>
+          ))}
+        </ol>
+      )}
+      {error && <p role="alert" className="negative">Couldn’t read promises from Solana: {error.message}</p>}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="empty" role="status">
+          <p>{filter === 'All' ? 'Nothing on the record yet.' : `No ${filter.toLowerCase()} promises right now.`}</p>
+          <Link className="text-link" href="/create">
+            Track the first one →
+          </Link>
+        </div>
+      )}
+      {!loading && filtered.length > 0 && (
+        <ol className="ledger">
+          {filtered.map((m) => (
+            <LedgerRow key={m.id} market={m} />
+          ))}
+        </ol>
+      )}
     </>
   );
 }
@@ -157,6 +234,7 @@ export function StakePanel({ market }: { market: MarketView }) {
               {position ? `Your ${position.side} prediction · ${position.amount} tUSDC` : busy ? 'Waiting for confirmation…' : 'Confirm prediction'}
           </button>
           {position && <p className="muted">One prediction per wallet on each market.</p>}
+          {position && <ShareBet market={market} side={position.side} amount={position.amount} />}
         </>
       ) : (
         <>

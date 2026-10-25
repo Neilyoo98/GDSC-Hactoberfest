@@ -1,43 +1,41 @@
 // OWNER: P3
 import Link from 'next/link';
-import { MarketGrid } from '@/components/kept/ledger';
+import { HomeBoard, NewsRail } from '@/components/kept/home';
+
 export default function Home() {
   return (
     <>
-      <section className="home-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">
-            <span className="live-dot" />
-            Promises. With follow-through.
-          </p>
-          <h1>
-            Big promises.
-            <br />
-            <span>Did they keep them?</span>
-          </h1>
-          <p className="hero-description">
-            They said it. Now let’s follow up.
-            <br />
-            Track public promises, predict the outcome, and see the evidence.
-          </p>
-          <Link href="/create" className="primary button hero-cta">
-            Track a promise <span aria-hidden="true">↗</span>
+      <section className="masthead">
+        <h1>The public record of promises.</h1>
+        <p className="masthead-lede">
+          Paste a promise from the news. AI turns it into a yes-or-no question with a deadline, people back
+          <b className="positive"> Kept</b> or <b className="negative">Broken</b> with test USDC, and the
+          result is settled on Solana for anyone to check.
+        </p>
+        <p className="masthead-actions">
+          <Link href="/create" className="primary button">
+            Track a promise
           </Link>
-          <p className="hero-note">
-            Public commitments. Test tokens. Real accountability.
-          </p>
-        </div>
+          <Link href="/faucet" className="text-link">
+            New here? Get 100 test USDC →
+          </Link>
+        </p>
       </section>
-      <section aria-labelledby="promises-heading">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">The public record</p>
-            <h2 id="promises-heading">Promises worth watching</h2>
-          </div>
-          <span className="sample-note">Sample promises</span>
-        </div>
-        <MarketGrid />
-      </section>
+
+      <HomeBoard
+        rail={
+          <aside aria-labelledby="news-heading" className="rail">
+            <h2 id="news-heading" className="section-title">
+              In the news this week
+            </h2>
+            <p className="rail-note">
+              Live from news search. Pick one to track; the AI checks it’s specific and dated before it can become
+              a market.
+            </p>
+            <NewsRail />
+          </aside>
+        }
+      />
     </>
   );
 }
