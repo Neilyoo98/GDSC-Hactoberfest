@@ -30,9 +30,9 @@ test('empty clicks show validation and filled clicks send exactly one request', 
   await page
     .getByLabel('Public post URL, article URL, or original text')
     .fill(sourceText);
-  await page.getByLabel('Extra guidance for the AI').fill(
-    'Focus on the promised transit improvements.',
-  );
+  await page
+    .getByLabel('Extra guidance for the AI')
+    .fill('Focus on the promised transit improvements.');
   await page
     .getByRole('button', { name: 'Generate AI draft', exact: true })
     .click();
@@ -40,7 +40,7 @@ test('empty clicks show validation and filled clicks send exactly one request', 
     page.getByRole('button', { name: 'Generating AI draft…' }),
   ).toBeDisabled();
   await expect(
-    page.getByRole('status').filter({ hasText: 'Reading the source' }),
+    page.getByRole('status').filter({ hasText: 'AI is reviewing your source' }),
   ).toBeVisible();
   release();
   await expect(
@@ -52,7 +52,7 @@ test('empty clicks show validation and filled clicks send exactly one request', 
   await expect(page.getByLabel('Deadline', { exact: true })).toHaveValue(
     '2099-12-31',
   );
-  await expect(page.getByText('a'.repeat(64))).toBeVisible();
+  await expect(page.getByText('a'.repeat(64))).toHaveCount(0);
   expect(requests).toBe(1);
   expect(errors).toEqual([]);
   await page
