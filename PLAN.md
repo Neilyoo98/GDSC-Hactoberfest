@@ -474,7 +474,7 @@ app/src/shared/types.ts   app/src/shared/apiClient.ts   app/.env.example   app/i
 
 # FRONTEND
 
-## Person 3: ________ · Frontend UI (pages, design, UI tests)
+## Person 3: Noam · Frontend UI (pages, design, UI tests)
 
 **Goal:** The screens judges remember. It should feel like a **public record**, not a casino. **You go first:** your scaffold unblocks everyone's `app/` code.
 
