@@ -651,6 +651,36 @@ nav a:hover {
   }
 }
 
+/* Wallet Adapter buttons follow the site's visual system. */
+.wallet-button {
+  min-height: 46px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 10px !important;
+  padding: 11px 19px !important;
+  background: var(--ink) !important;
+  color: #fff !important;
+  font: inherit !important;
+  font-weight: 600 !important;
+  transition: background 0.2s, transform 0.2s !important;
+}
+.wallet-button:hover:not(:disabled) {
+  background: #1b523d !important;
+  transform: translateY(-1px);
+}
+.source-fingerprint code {
+  overflow-wrap: anywhere;
+}
+.publish-button {
+  margin-top: 14px;
+}
+@media (max-width: 680px) {
+  header .wallet-button {
+    min-height: 40px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
 .home-hero {
   grid-template-columns: 1fr;
   padding: 72px 0 64px;
