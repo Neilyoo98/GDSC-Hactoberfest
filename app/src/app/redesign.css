@@ -739,6 +739,11 @@ main {
   margin: 0 0 8px;
   font: 500 16px var(--font-display), serif;
 }
+.share-bet-note {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
 .share-bet-actions {
   display: flex;
   gap: 8px;

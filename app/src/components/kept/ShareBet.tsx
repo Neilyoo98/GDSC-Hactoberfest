@@ -10,10 +10,17 @@ const subscribe = () => () => {};
 /** Public base for shared links: NEXT_PUBLIC_SITE_URL (deployed/tunnel URL) or the current origin. */
 const siteBase = () => (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/u, '');
 
-export function shareText(market: Pick<MarketView, 'promiser' | 'promiseText' | 'deadline'>, side: Side, amount: number) {
+export function shareText(
+  market: Pick<MarketView, 'promiser' | 'promiseText' | 'deadline'>,
+  side: Side,
+  amount: number,
+  confirmed = false,
+) {
   const due = new Date(market.deadline * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const call = side === 'kept' ? '✓ Kept' : '✕ Broken';
-  const head = `I'm backing ${call} with ${amount} tUSDC: will ${market.promiser} keep this promise?`;
+  const call = side === 'kept' ? 'Kept' : 'Broken';
+  const head = confirmed
+    ? `I backed ${call} with ${amount} tUSDC: will ${market.promiser} keep this promise?`
+    : `My current pick is ${call} for ${amount} tUSDC: will ${market.promiser} keep this promise?`;
   const tail = `Due ${due}. Make your call on Kept:`;
   // Leave room for the link (+1 space) and trim the quote to fit.
   const room = X_LIMIT - X_URL_LENGTH - 1 - head.length - tail.length - 6;
@@ -21,15 +28,28 @@ export function shareText(market: Pick<MarketView, 'promiser' | 'promiseText' | 
   return `${head} “${quote}” ${tail}`;
 }
 
-export function ShareBet({ market, side, amount }: { market: MarketView; side: Side; amount: number }) {
+export function ShareBet({
+  market,
+  side,
+  amount,
+  confirmed = false,
+}: {
+  market: MarketView;
+  side: Side;
+  amount: number;
+  confirmed?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const base = useSyncExternalStore(subscribe, siteBase, () => '');
   if (!base) return null;
   const url = `${base}/markets/${market.id}`;
-  const intent = `https://x.com/intent/post?${new URLSearchParams({ text: shareText(market, side, amount), url })}`;
+  const intent = `https://x.com/intent/post?${new URLSearchParams({ text: shareText(market, side, amount, confirmed), url })}`;
   return (
     <div className="share-bet">
-      <p className="share-bet-title">Your call is on the record.</p>
+      <p className="share-bet-title">
+        {confirmed ? 'Your call is on the record.' : 'Share your selected pick.'}
+      </p>
+      {!confirmed && <p className="share-bet-note">Sharing a pick doesn’t place a bet.</p>}
       <div className="share-bet-actions">
         <a className="button share-x" href={intent} target="_blank" rel="noopener noreferrer">
           Share on X
