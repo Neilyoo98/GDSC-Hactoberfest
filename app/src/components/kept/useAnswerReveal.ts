@@ -28,19 +28,19 @@ export function useAnswerReveal(response: DraftResponse | null) {
   useEffect(() => {
     if (!response) {
       edited.current = false;
-      setCharacters(0);
-      setComplete(false);
       return;
     }
     if (edited.current) return;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (media.matches) {
-      setComplete(true);
-      return;
+      const timer = window.setTimeout(() => setComplete(true), 0);
+      return () => window.clearTimeout(timer);
     }
     let shown = 0;
-    setCharacters(0);
-    setComplete(false);
+    const resetTimer = window.setTimeout(() => {
+      setCharacters(0);
+      setComplete(false);
+    }, 0);
     const timer = window.setInterval(() => {
       shown = Math.min(total, shown + 2);
       setCharacters(shown);
@@ -57,6 +57,7 @@ export function useAnswerReveal(response: DraftResponse | null) {
     };
     media.addEventListener('change', reduceMotion);
     return () => {
+      window.clearTimeout(resetTimer);
       window.clearInterval(timer);
       media.removeEventListener('change', reduceMotion);
     };

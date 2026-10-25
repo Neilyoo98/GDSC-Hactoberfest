@@ -1,5 +1,7 @@
-// OWNER: P1. The relay must never pay for anything except Kept transactions.
-import { describe, expect, it } from 'vitest';
+// The relay must never pay for anything except approved Kept instructions.
+// Validation runs before any network call, so these tests stay offline.
+import { createHash } from 'node:crypto';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ComputeBudgetProgram,
   Keypair,
@@ -8,52 +10,62 @@ import {
   Transaction,
   TransactionInstruction,
 } from '@solana/web3.js';
-import { validateRelayTx } from './relay';
 
-const program = new PublicKey('GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap');
-const feePayer = Keypair.generate().publicKey;
-const user = Keypair.generate().publicKey;
-const kept = () => new TransactionInstruction({ programId: program, keys: [{ pubkey: user, isSigner: true, isWritable: true }], data: Buffer.from([1, 2, 3]) });
-const tx = (...ixs: TransactionInstruction[]) => {
-  const t = new Transaction().add(...ixs);
-  t.feePayer = feePayer;
-  return t;
-};
-const check = (t: Transaction) => () => validateRelayTx(t, feePayer, program);
-
-describe('validateRelayTx', () => {
-  it('accepts a Kept instruction paid by the relay', () => {
-    expect(check(tx(kept()))).not.toThrow();
+const PROGRAM = 'GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap';
+const programId = new PublicKey(PROGRAM);
+const feePayer = Keypair.generate();
+const user = Keypair.generate();
+const disc = (name: string) => createHash('sha256').update(`global:${name}`).digest().subarray(0, 8);
+const ix = (name: string) =>
+  new TransactionInstruction({
+    programId,
+    keys: [{ pubkey: user.publicKey, isSigner: true, isWritable: true }],
+    data: Buffer.concat([disc(name), Buffer.alloc(9)]),
   });
 
-  it('accepts bounded ComputeBudget settings next to a Kept instruction', () => {
-    expect(
-      check(tx(ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }), ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }), kept())),
-    ).not.toThrow();
+function encode(ixs: TransactionInstruction[], opts: { payer?: PublicKey; sign?: boolean } = {}) {
+  const tx = new Transaction().add(...ixs);
+  tx.feePayer = opts.payer ?? feePayer.publicKey;
+  tx.recentBlockhash = Keypair.generate().publicKey.toBase58();
+  if (opts.sign !== false) tx.partialSign(user);
+  return { tx: tx.serialize({ requireAllSignatures: false }).toString('base64') };
+}
+
+let relayTransaction: (value: unknown) => Promise<string>;
+beforeEach(async () => {
+  vi.stubEnv('FEE_PAYER_SECRET', JSON.stringify(Array.from(feePayer.secretKey)));
+  vi.stubEnv('NEXT_PUBLIC_FEE_PAYER_PUBKEY', feePayer.publicKey.toBase58());
+  vi.stubEnv('NEXT_PUBLIC_PROGRAM_ID', PROGRAM);
+  vi.resetModules(); // constants.ts reads env at import time
+  ({ relayTransaction } = await import('./relay'));
+});
+
+const rejects = (value: unknown, msg: RegExp) =>
+  expect(relayTransaction(value)).rejects.toMatchObject({ code: 'invalid_relay', message: expect.stringMatching(msg) });
+
+describe('relayTransaction validation', () => {
+  it('passes a signed place_stake (fails only at the offline send step)', async () => {
+    await expect(relayTransaction(encode([ix('place_stake')]))).rejects.toMatchObject({ code: 'relay_failed' });
   });
 
-  it('refuses a transaction whose fee payer is not the relay', () => {
-    const t = tx(kept());
-    t.feePayer = user;
-    expect(check(t)).toThrow(/fee payer/);
-  });
+  it('refuses a transaction whose fee payer is not the relay', () =>
+    rejects(encode([ix('place_stake')], { payer: user.publicKey }), /fee payer/));
 
-  it('refuses a SystemProgram transfer (would drain the fee payer)', () => {
-    const drain = SystemProgram.transfer({ fromPubkey: feePayer, toPubkey: user, lamports: 1_000_000_000 });
-    expect(check(tx(kept(), drain))).toThrow(/only pays for Kept/);
-  });
+  it('refuses a SystemProgram transfer that would drain the fee payer', () =>
+    rejects(
+      encode([ix('place_stake'), SystemProgram.transfer({ fromPubkey: feePayer.publicKey, toPubkey: user.publicKey, lamports: 1e9 })]),
+      /unapproved program/,
+    ));
 
-  it('refuses an unknown program', () => {
-    const other = new TransactionInstruction({ programId: Keypair.generate().publicKey, keys: [], data: Buffer.alloc(0) });
-    expect(check(tx(other))).toThrow(/only pays for Kept/);
-  });
+  it('refuses Kept instructions users must not relay (propose_outcome)', () =>
+    rejects(encode([ix('propose_outcome')]), /unsupported market instruction/));
 
-  it('refuses a huge priority fee', () => {
-    expect(check(tx(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000_000 }), kept()))).toThrow(/Priority fee/);
-  });
+  it('refuses a transaction without the user signature', () =>
+    rejects(encode([ix('place_stake')], { sign: false }), /signature/));
 
-  it('refuses ComputeBudget-only and oversized transactions', () => {
-    expect(check(tx(ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 })))).toThrow(/does not call the Kept/);
-    expect(check(tx(kept(), kept(), kept(), kept(), kept()))).toThrow(/1-4 instructions/);
-  });
+  it('refuses a huge priority fee', () =>
+    rejects(encode([ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000_000 }), ix('place_stake')]), /compute budget/));
+
+  it('refuses two market instructions in one transaction', () =>
+    rejects(encode([ix('place_stake'), ix('claim')]), /one market instruction/));
 });

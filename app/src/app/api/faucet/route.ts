@@ -1,24 +1,25 @@
-// OWNER: P1 (taken over from P2). POST { wallet } → { signature, amount } | { error: "already_claimed" }
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { ServiceError } from '@/server/errors';
-import { claimFaucet } from '@/server/orchestrator/faucet';
+import { dispenseTestTokens } from '@/server/orchestrator/faucet';
 
 export const runtime = 'nodejs';
+const RequestSchema = z.object({ wallet: z.string().min(32).max(64) }).strict();
 
 export async function POST(request: Request) {
-  let body: { wallet?: unknown };
+  let body: unknown;
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ error: 'Request body must be valid JSON.' }, { status: 400 }); }
+  const parsed = RequestSchema.safeParse(body);
+  if (!parsed.success)
+    return NextResponse.json({ error: 'Provide a valid wallet public key.' }, { status: 400 });
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Request body must be valid JSON.' }, { status: 400 });
-  }
-  if (typeof body.wallet !== 'string' || !body.wallet)
-    return NextResponse.json({ error: 'Provide wallet (a public key).' }, { status: 400 });
-  try {
-    return NextResponse.json(await claimFaucet(body.wallet));
+    return NextResponse.json(await dispenseTestTokens(parsed.data));
   } catch (error) {
-    if (error instanceof ServiceError)
-      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
-    return NextResponse.json({ error: 'The faucet could not send tokens. Try again.', code: 'faucet_failed' }, { status: 502 });
+    const known = error instanceof ServiceError;
+    return NextResponse.json(
+      { error: known ? error.message : 'The test-token faucet is unavailable.', code: known ? error.code : 'faucet_failed' },
+      { status: known ? error.status : 502 },
+    );
   }
 }
