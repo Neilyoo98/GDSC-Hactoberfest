@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { MarketView, PositionView, Side, Outcome, MarketDraft } from "../shared/types";
 import { CHAIN_MODE, getChain, type WalletLike } from "./index";
 import { explorerTx } from "./relay";
+import { withProgramErrorName } from "./errors";
 
 const chain = getChain();
 // PLAN: 3 s on the market page, 10 s elsewhere. Any confirmed tx also refetches right away.
@@ -71,7 +72,7 @@ function friendly(cause: unknown): string {
   const root = typeof cause === 'object' && cause !== null ? cause as Record<string, unknown> : {};
   const nested = typeof root.error === 'object' && root.error !== null ? root.error as Record<string, unknown> : {};
   const errorCode = typeof nested.errorCode === 'object' && nested.errorCode !== null ? nested.errorCode as Record<string, unknown> : {};
-  const msg = String(errorCode.code ?? root.message ?? cause);
+  const msg = withProgramErrorName(String(errorCode.code ?? root.message ?? cause));
   if (/User rejected/i.test(msg)) return "You cancelled in your wallet.";
   if (/StakeOutOfRange/.test(msg)) return "Stake must be between 1 and 100 tUSDC.";
   if (/already in use|AlreadyStaked/.test(msg)) return "You already have a stake on this market.";

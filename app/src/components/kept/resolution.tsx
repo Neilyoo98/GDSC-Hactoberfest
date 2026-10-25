@@ -20,7 +20,12 @@ function useNow() {
   return now;
 }
 
-const mmss = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
+const mmss = (secs: number) => {
+  const s = Math.max(0, secs);
+  if (s >= 86_400) return `${Math.floor(s / 86_400)}d ${Math.floor((s % 86_400) / 3600)}h`;
+  if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
 function Proposal({ m }: { m: MarketView }) {
   const p = m.proposal;
