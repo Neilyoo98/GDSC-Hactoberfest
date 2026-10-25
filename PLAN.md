@@ -4,7 +4,7 @@
 > Did they keep their promise? A public promise tracker on Solana.
 > **Tracks:** Solana Partner Challenge + Tech for Good. Confirm the exact judging criteria at kickoff.
 
-`CLAUDE.md` (on the `claudemd` branch) holds the **fixed decisions and business rules**. This file holds **who builds what, in which file, by when, and what to do when something breaks.** If they disagree, business rules come from `CLAUDE.md`, and schedule and ownership come from this file. See [§15 Differences from CLAUDE.md](#15-differences-from-claudemd).
+`CLAUDE.md` holds the **fixed decisions, business rules and role summaries**. This file holds **who builds what, in which file, by when, and what to do when something breaks.** The two are kept in sync; see [§15](#15-relationship-to-claudemd).
 
 ---
 
@@ -12,20 +12,20 @@
 
 0. [The 6-hour reality check](#0-the-6-hour-reality-check)
 1. [The demo (what judges see)](#1-the-demo-what-judges-see)
-2. [Team lanes](#2-team-lanes)
+2. [Team and work separation](#2-team-and-work-separation)
 3. [Architecture: the five layers](#3-architecture-the-five-layers)
 4. [Repo structure and file ownership](#4-repo-structure-and-file-ownership)
 5. [Contracts (lock by 12:30)](#5-contracts-lock-by-1230)
-6. [P1: Settlement layer (Anchor program)](#6-p1-settlement-layer-anchor-program)
-7. [P2: Context + Intelligence + Orchestration (server and AI)](#7-p2-context--intelligence--orchestration-server-and-ai)
-8. [P3: Experience layer (pages and design)](#8-p3-experience-layer-pages-and-design)
-9. [P4: Chain client, wallet, relay path, Blinks](#9-p4-chain-client-wallet-relay-path-blinks)
+6. [P1: Blockchain (Anchor program + program tests)](#6-p1-blockchain-anchor-program--program-tests)
+7. [P2: Backend (AI, server workflows, scripts, backend tests)](#7-p2-backend-ai-server-workflows-scripts-backend-tests)
+8. [P3: Frontend UI (pages, design, UI tests)](#8-p3-frontend-ui-pages-design-ui-tests)
+9. [P4: Frontend wallet + chain (client, Blinks, smoke test)](#9-p4-frontend-wallet--chain-client-blinks-smoke-test)
 10. [Timeline and checkpoints](#10-timeline-and-checkpoints)
 11. [Git workflow: branch, commit, check](#11-git-workflow-branch-commit-check)
 12. [Tools, accounts and setup](#12-tools-accounts-and-setup)
 13. [Fallbacks (if X breaks, do Y)](#13-fallbacks-if-x-breaks-do-y)
 14. [Pitch and judge Q&A](#14-pitch-and-judge-qa)
-15. [Differences from CLAUDE.md](#15-differences-from-claudemd)
+15. [Relationship to CLAUDE.md](#15-relationship-to-claudemd)
 
 ---
 
@@ -69,16 +69,86 @@ About 3 minutes, all live on devnet. Seeded state is prepared at 16:45 ([§10](#
 
 ---
 
-## 2. Team lanes
+## 2. Team and work separation
 
-| Lane | Person | Layer(s) | Owns | Core deliverable |
+Four lanes. Every file has **one** owner, and **each lane writes the tests for its own code.**
+
+| Lane | Person | Area | One-line job |
+|---|---|---|---|
+| **P1** | ________ | **Blockchain** | The Anchor program, its tests, and the IDL + program ID handoff |
+| **P2** | ________ | **Backend** | All server code: AI drafting and resolving, fee-payer relay, faucet, devnet scripts, backend + API tests |
+| **P3** | ________ | **Frontend: UI** | Design system, every page and component, UI end-to-end tests |
+| **P4** | ________ | **Frontend: wallet + chain** | Wallet connect, the chain client every page uses (incl. mock), Blinks, devnet smoke test, README |
+
+### 2.1 Who owns what
+
+**owns** = writes and maintains it · *uses* = imports it, never edits it · – = not involved
+
+| Work | P1 Blockchain | P2 Backend | P3 Frontend: UI | P4 Frontend: wallet + chain |
 |---|---|---|---|---|
-| **P1: Chain** | ________ | Settlement | `program/`, `app/src/shared/idl/`, `app/src/shared/constants.ts` | Anchor program deployed on devnet, IDL in repo, Playground tests green |
-| **P2: Server + AI** | ________ | Context, Intelligence, Orchestration | `app/src/server/`, `app/src/app/api/{draft,resolve,relay,faucet,health}/`, `app/scripts/`, `app/src/shared/types.ts`, `app/src/shared/apiClient.ts`, `app/.env.example` | `/api/draft`, `/api/resolve/[id]`, `/api/relay`, `/api/faucet`, devnet setup + seed scripts |
-| **P3: Web UI** | ________ | Experience | `app/src/app/` pages + `layout.tsx` + `globals.css`, `app/src/components/`, `app/package.json` | Every page and component, the design system, all UI states |
-| **P4: Wallet + Tx + Blinks** | ________ | Experience ↔ Settlement bridge | `app/src/chain/`, `app/src/wallet/`, `app/src/app/api/actions/`, `app/src/app/actions.json/` | `KeptChain` interface + mock + Anchor implementation, React hooks, relay send path, Blinks |
+| **BLOCKCHAIN** | | | | |
+| Solana program `program/` | **owns** | reviews | – | – |
+| IDL + constants `src/shared/idl/`, `src/shared/constants.ts` | **owns** | *uses* | *uses* | *uses* |
+| Custodial fallback `src/chain/custodial.ts` (only if Anchor is a no-go) | **owns** | – | – | reviews |
+| **BACKEND** | | | | |
+| API + domain types `src/shared/types.ts`, `src/shared/apiClient.ts` | – | **owns** | *uses* | *uses* |
+| Context layer `src/server/context/` (oEmbed, Tavily, hashing) | – | **owns** | – | – |
+| Intelligence layer `src/server/intelligence/` (Claude drafter + resolver) | – | **owns** | – | – |
+| Orchestration `src/server/orchestrator/` (resolve, relay, faucet, loop) | – | **owns** | – | – |
+| API routes `src/app/api/{draft,resolve,relay,faucet,health}/` | – | **owns** | – | – |
+| Ops scripts `scripts/{keys,doctor,setup-devnet,seed,ai-try}.ts` | helps | **owns** | – | – |
+| `.env.example`, `instrumentation.ts` | – | **owns** | – | – |
+| **FRONTEND** | | | | |
+| `package.json`, `layout.tsx`, `globals.css`, design tokens | – | – | **owns** | *uses* |
+| Components `src/components/` | – | – | **owns** | – |
+| Every page `src/app/**/page.tsx` | – | – | **owns** | – |
+| Wallet `src/wallet/` (Providers, burner wallet) | – | – | *uses* | **owns** |
+| Chain client `src/chain/` (interface, mock, Anchor impl, tx builders, hooks) | helps (PDAs) | *uses* `tx.ts` | *uses* hooks | **owns** |
+| Blinks `src/app/api/actions/`, `src/app/actions.json/` + cloudflared tunnel | – | – | – | **owns** |
+| **TESTING** | | | | |
+| Program tests `program/tests/kept.test.ts` | **owns** | – | – | – |
+| Backend unit tests `src/server/**/*.test.ts` | – | **owns** | – | – |
+| API contract tests `tests/api/*.test.ts` | – | **owns** | – | – |
+| UI end-to-end tests `tests/e2e/*.spec.ts` + `docs/TEST_CHECKLIST.md` | – | – | **owns** | – |
+| Chain client unit tests `src/chain/*.test.ts` | – | – | – | **owns** |
+| Devnet smoke test `scripts/smoke-devnet.ts` + `scripts/demo-reset.ts` | – | – | – | **owns** |
+| **DOCS** | | | | |
+| `program/README.md` | **owns** | – | – | – |
+| `README.md`, `docs/RUNBOOK.md` | – | – | – | **owns** |
 
-**Review pairs** (from `CLAUDE.md`): P1 ↔ P2, P3 ↔ P4. Reviews take 2 minutes: does `npm run check` pass, and does the PR stay inside the author's folders?
+### 2.2 Test scripts
+
+| What it proves | File(s) | Owner | Runner | Command | Green by |
+|---|---|---|---|---|---|
+| Every instruction: happy path + one failure; payout worked example (10 × 100 ÷ 25 = 40) | `program/tests/kept.test.ts` | P1 | Playground **Test** tab | run in Playground | CP1 (core), CP2 (challenge + council) |
+| oEmbed HTML → plain text; same text → same hash | `src/server/context/*.test.ts` | P2 | vitest | `npm test` | CP1 |
+| Drafter rejects vague / private person / harm; foreign citations dropped; confidence 0.65 → council | `src/server/intelligence/*.test.ts` (recorded Claude responses, no live calls) | P2 | vitest | `npm test` | CP2 |
+| Relay refuses wrong fee payer, SystemProgram transfer, unknown program | `src/server/orchestrator/relay.test.ts` | P2 | vitest | `npm test` | CP2 |
+| Every `/api/*` returns the `types.ts` shape; bad input → 400 | `tests/api/*.test.ts` | P2 | vitest against `npm run dev` | `npm run test:api` | CP2 |
+| Payout mirror: 40; void refund; nobody on the winning side → refund | `src/chain/payout.test.ts` | P4 | vitest | `npm test` | CP1 |
+| Account decoding: base units ÷ 1e6, enums → strings, default pubkey → `null` | `src/chain/read.test.ts` | P4 | vitest | `npm test` | CP2 |
+| Real devnet: faucet → create → 3 stakes → propose → wait → finalize → claim = +40 | `scripts/smoke-devnet.ts` | P4 | tsx | `npm run smoke:devnet` | **CP2 (this is the gate)** |
+| UI in mock mode: create (accept + reject), stake, every resolution state, claim | `tests/e2e/*.spec.ts` | P3 | Playwright + burner wallet | `npm run test:e2e` | CP3 |
+| Env, keys, RPC, SOL balances, Claude + Tavily reachable | `scripts/doctor.ts` | P2 | tsx | `npm run doctor` | CP0 |
+| Wallet states, wrong network, stake 1 and 100, 101 rejected, projector size, dark mode | `docs/TEST_CHECKLIST.md` | P3 | a person | — | CP3 |
+
+`npm run check` (`tsc --noEmit && vitest run`) runs every unit test and must pass before **every** merge. At each checkpoint, P4 runs `smoke:devnet`, P2 runs `test:api`, P3 runs `test:e2e`, and each posts the result in chat.
+
+### 2.3 Handoffs (who is waiting on whom)
+
+| By | From → To | What |
+|---|---|---|
+| 12:25 | P3 → all | Scaffold on `main` (every file stubbed, all dependencies installed) |
+| 12:30 | P2 → all | `types.ts`, `apiClient.ts`, `.env.local` (by private DM) |
+| 12:30 | P4 → all | `src/chain/index.ts` interface + hook signatures |
+| 12:45 | P1 → P2, P4 | Program ID + stub IDL |
+| 12:45 | P4 → P3 | `mock.ts` + `fixtures.ts` (every market status covered) |
+| 13:30 | P1 → all | **Frozen** IDL (account layout locked) |
+| 14:15 | P4 → P2 | `buildProposeTx` + tx builders working on devnet |
+| 14:30 | P2 → P4 | `/api/relay` + `/api/faucet` live |
+| 15:30 | P4 → all | `npm run smoke:devnet` green = **CP2 passed** |
+
+**Review pairs:** P1 ↔ P2, P3 ↔ P4. Reviews take 2 minutes: does `npm run check` pass, and does the PR stay inside the author's folders?
 
 **Council wallets for the demo:** P1, P2 and P3 each create a **second** Phantom account named `Kept Council N`. Their public keys go into the config at setup.
 
@@ -151,76 +221,90 @@ About 3 minutes, all live on devnet. Seeded state is prepared at 16:45 ([§10](#
 
 **One Next.js app plus the program.** Server routes, the resolver and the UI share one `package.json`, one `tsconfig` and one set of types, and only one port needs a tunnel for Blinks. Conflicts are prevented by folder ownership and by a **scaffold commit that creates every file below as a stub**, so nobody creates the same file at the same time.
 
+Legend: **[BC]** blockchain · **[BE]** backend · **[FE]** frontend · **[TEST]** tests · **[DOC]** docs
+
 ```
 GDSC-Hactoberfest/
-├── CLAUDE.md                              team    rules (merge from `claudemd` branch at 12:00)
-├── PLAN.md                                team    this file
-├── README.md                              P4      written at 16:45
-├── program/                               P1      copy of the Playground project, committed at each milestone
+├── CLAUDE.md                                   team   rules + roles, loaded by Claude Code
+├── PLAN.md                                     team   this file
+├── README.md                          [DOC]    P4     written at 16:45
+├── docs/
+│   ├── TEST_CHECKLIST.md              [TEST]   P3     manual UI checks before each checkpoint
+│   └── RUNBOOK.md                     [DOC]    P4     setup, wallet funding, start, tunnel, demo reset
+├── program/                           [BC]     P1     copy of the Playground project, committed at each milestone
 │   ├── src/lib.rs
-│   ├── tests/kept.test.ts
-│   └── README.md                          how to open, build, deploy and export the IDL in Playground
-└── app/                                   Next.js (App Router, TypeScript, Tailwind, shadcn/ui)
-    ├── package.json                       P3      ALL deps installed in the scaffold; others ask P3
-    ├── .env.example                       P2      every variable, no values
-    ├── instrumentation.ts                 P2      starts the resolver loop when RESOLVER_LOOP=1
-    ├── scripts/                           P2
-    │   ├── keys.ts                        generate fee-payer and resolver keypairs
-    │   ├── doctor.ts                      checks env, RPC, SOL balances, Claude, Tavily → ✅/❌ table
-    │   ├── setup-devnet.ts                create tUSDC mint, initialize_config, fund demo wallets
-    │   ├── seed.ts                        create demo markets (one already past its deadline)
-    │   └── ai-try.ts                      `npm run ai:try -- <url>` runs context + drafter in the terminal
+│   ├── tests/kept.test.ts             [TEST]   P1
+│   └── README.md                               P1     open, build, deploy and export the IDL in Playground
+└── app/                                               Next.js (App Router, TypeScript, Tailwind, shadcn/ui)
+    ├── package.json                   [FE]     P3     ALL deps installed in the scaffold; others ask P3
+    ├── playwright.config.ts           [TEST]   P3
+    ├── .env.example                   [BE]     P2     every variable, no values
+    ├── instrumentation.ts             [BE]     P2     starts the resolver loop when RESOLVER_LOOP=1
+    ├── scripts/
+    │   ├── keys.ts                    [BE]     P2     generate fee-payer and resolver keypairs
+    │   ├── doctor.ts                  [BE]     P2     env, RPC, SOL balances, Claude, Tavily → ✅/❌ table
+    │   ├── setup-devnet.ts            [BE]     P2     tUSDC mint, initialize_config, fund demo wallets
+    │   ├── seed.ts                    [BE]     P2     demo markets (one past its deadline at demo time)
+    │   ├── ai-try.ts                  [BE]     P2     `npm run ai:try -- <url>` runs context + AI in the terminal
+    │   ├── smoke-devnet.ts            [TEST]   P4     full money path on real devnet, asserts +40
+    │   └── demo-reset.ts              [TEST]   P4     re-seed + re-fund demo wallets before rehearsal
+    ├── tests/
+    │   ├── api/*.test.ts              [TEST]   P2     contract tests against the running dev server
+    │   └── e2e/*.spec.ts              [TEST]   P3     Playwright, mock mode, burner wallet
     └── src/
-        ├── shared/                        CONTRACT LAYER
-        │   ├── types.ts                   P2      domain + API types (§5.1)
-        │   ├── apiClient.ts               P2      typed fetch wrappers for /api/*
-        │   ├── constants.ts               P1      program id, mint, seeds, limits (§5.3)
-        │   └── idl/kept.json, kept.ts     P1      exported from Playground
-        ├── server/                        P2      server-only (`import "server-only"`)
-        │   ├── context/                   oembed.ts · tavily.ts · hash.ts · evidence.ts
-        │   ├── intelligence/              claude.ts · schemas.ts · prompts.ts · drafter.ts · resolver.ts
-        │   ├── orchestrator/              resolveMarket.ts · loop.ts · relay.ts · faucet.ts · keys.ts · trace.ts
-        │   └── fixtures/                  cached drafts, evidence, verdicts for demo promises
-        ├── chain/                         P4      isomorphic chain client
-        │   ├── index.ts                   KeptChain interface + factory (mock | anchor | custodial)
-        │   ├── mock.ts, fixtures.ts       in-memory implementation for P3 (ready by 12:45)
-        │   ├── anchor.ts                  real implementation from the IDL
-        │   ├── custodial.ts               FALLBACK implementation (P1 writes it if Anchor is a no-go)
-        │   ├── pdas.ts · tx.ts · read.ts  PDA derivation, instruction/tx builders, account decoding
-        │   ├── payout.ts (+ .test.ts)     TS mirror of on-chain payout math
-        │   └── hooks.ts                   useMarkets, useMarket, usePositions, useKeptActions
-        ├── wallet/                        P4      Providers.tsx (wallet adapter + Sonner), burner.ts
-        ├── components/                    P3
-        │   ├── ui/                        shadcn generated
-        │   └── kept/                      MarketCard, OddsBar, StatusChip, Countdown, PromiseQuote,
-        │                                  SourceFingerprint, StakePanel, ResolutionCard, EvidenceList,
-        │                                  ResearchTrace, MarketTimeline, PayoutReceipt, PromiserScore …
+        ├── shared/                                    CONTRACT LAYER
+        │   ├── types.ts               [BE]     P2     domain + API types (§5.1)
+        │   ├── apiClient.ts           [BE]     P2     typed fetch wrappers for /api/*
+        │   ├── constants.ts           [BC]     P1     program id, mint, seeds, limits (§5.3)
+        │   └── idl/kept.json, kept.ts [BC]     P1     exported from Playground
+        ├── server/                    [BE]     P2     server-only (`import "server-only"`)
+        │   ├── context/                               oembed.ts · tavily.ts · hash.ts · evidence.ts (+ *.test.ts)
+        │   ├── intelligence/                          claude.ts · schemas.ts · prompts.ts · drafter.ts · resolver.ts (+ *.test.ts)
+        │   ├── orchestrator/                          resolveMarket.ts · loop.ts · relay.ts · faucet.ts · keys.ts · trace.ts (+ relay.test.ts)
+        │   └── fixtures/                              cached drafts, evidence, verdicts, recorded Claude responses
+        ├── chain/                     [FE]     P4     isomorphic chain client
+        │   ├── index.ts                        P4     KeptChain interface + factory (mock | anchor | custodial)
+        │   ├── anchor.ts                       P4     real implementation from the IDL
+        │   ├── pdas.ts · tx.ts · read.ts       P4     PDA derivation, tx builders (incl. buildProposeTx), decoding
+        │   ├── payout.ts (+ .test.ts)          P4     TS mirror of on-chain payout math
+        │   ├── read.test.ts           [TEST]   P4
+        │   ├── hooks.ts                        P4     useMarkets, useMarket, usePositions, useKeptActions
+        │   ├── mock.ts, fixtures.ts   [TEST]   P4     in-memory implementation (ready by 12:45)
+        │   └── custodial.ts           [BC]     P1     FALLBACK only, if Anchor is a no-go
+        ├── wallet/                    [FE]     P4     Providers.tsx (wallet adapter + Sonner), burner.ts
+        ├── components/
+        │   ├── ui/                    [FE]     P3     shadcn generated
+        │   ├── kept/                  [FE]     P3     MarketCard, OddsBar, StatusChip, Countdown, PromiseQuote,
+        │   │                                          SourceFingerprint, StakePanel, ResolutionCard, EvidenceList,
+        │   │                                          ResearchTrace, MarketTimeline, PayoutReceipt, PromiserScore
+        │   └── flows/                 [FE]     P3     SourceCard, DraftForm, RejectNotice, ChallengePanel, CouncilVotePanel
         └── app/
-            ├── layout.tsx, globals.css    P3      (wraps children in P4's <Providers/>, done in the scaffold)
-            ├── page.tsx                   P3      home: market grid
-            ├── create/page.tsx            P3
-            ├── markets/[id]/page.tsx      P3
-            ├── promisers/[handle]/page.tsx P3
-            ├── leaderboard/page.tsx       P3
-            ├── council/page.tsx           P3
-            ├── faucet/page.tsx            P3
-            ├── actions.json/route.ts      P4      Blinks discovery
-            └── api/
-                ├── draft/route.ts         P2
-                ├── resolve/[id]/route.ts  P2      POST runs resolution, GET returns the research trace
-                ├── relay/route.ts         P2
-                ├── faucet/route.ts        P2
-                ├── health/route.ts        P2
-                └── actions/stake/route.ts P4      Blinks GET (metadata) + POST (tx)
+            ├── layout.tsx, globals.css [FE]    P3     wraps children in P4's <Providers/> (done in the scaffold)
+            ├── page.tsx                [FE]    P3     home: market grid
+            ├── markets/[id]/page.tsx   [FE]    P3
+            ├── promisers/[handle]/page.tsx [FE] P3
+            ├── leaderboard/page.tsx    [FE]    P3
+            ├── faucet/page.tsx         [FE]    P3
+            ├── create/page.tsx         [FE]    P3
+            ├── council/page.tsx        [FE]    P3
+            ├── actions.json/route.ts   [FE]    P4     Blinks discovery
+            └── api/                    [BE]    P2
+                ├── draft/route.ts
+                ├── resolve/[id]/route.ts              POST runs resolution, GET returns the research trace
+                ├── relay/route.ts
+                ├── faucet/route.ts
+                ├── health/route.ts
+                └── actions/stake/route.ts  [FE] P4    Blinks GET (metadata) + POST (tx)
 ```
 
 ### Ownership rules
 
 1. **Only the owner edits a file.** If you need a change in someone else's file, say so in team chat, or leave `// TODO(P3): …` in your own file and keep going.
-2. **Hot files have exactly one owner:** `package.json` (P3), `types.ts` (P2), `constants.ts` + `idl/` (P1), `layout.tsx` (P3), `.env.example` (P2).
-3. **No moving, renaming or reformatting** other people's files. Prettier config is committed in the scaffold, so everyone formats the same way.
-4. **Contracts change only additively** after 12:30: add optional fields, never rename or remove. Announce every change in chat.
-5. **`.env.local` is never committed.** P2 sends it in a private team DM.
+2. **Hot files have exactly one owner:** `package.json` (P3), `types.ts` (P2), `constants.ts` + `idl/` (P1), `layout.tsx` (P3), `.env.example` (P2), `src/chain/index.ts` (P4).
+3. **Cross-lane mount points are created once, in the scaffold:** `layout.tsx` (P3) already wraps P4's `<Providers>`, and pages already import P4's hooks from `src/chain/hooks.ts`. Neither side touches the other's file after that.
+4. **No moving, renaming or reformatting** other people's files. Prettier config is committed in the scaffold, so everyone formats the same way.
+5. **Contracts change only additively** after 12:30: add optional fields, never rename or remove. Announce every change in chat.
+6. **`.env.local` is never committed.** P2 sends it in a private team DM.
 
 ---
 
@@ -356,7 +440,7 @@ export function buildProposeTx(resolver: PublicKey, id: number, v: Verdict, conf
 
 ---
 
-## 6. P1: Settlement layer (Anchor program)
+## 6. P1: Blockchain (Anchor program + program tests)
 
 **Goal:** One Anchor program on devnet that holds every market's money and enforces every rule in `CLAUDE.md`. No admin withdraw.
 
@@ -524,7 +608,7 @@ fn payout(m: &Market, p: &Position) -> u64 {
 
 ---
 
-## 7. P2: Context + Intelligence + Orchestration (server and AI)
+## 7. P2: Backend (AI, server workflows, scripts, backend tests)
 
 **Goal:** Everything server-side. Turn a link into a clean source, turn a source into a market draft, turn a market into an evidence-backed verdict, and run the workflows that move between them and sign with server keys.
 
@@ -532,6 +616,7 @@ fn payout(m: &Market, p: &Position) -> u64 {
 ```
 app/src/server/**   app/src/app/api/{draft,resolve,relay,faucet,health}/**   app/scripts/**
 app/src/shared/types.ts   app/src/shared/apiClient.ts   app/.env.example   app/instrumentation.ts
+app/tests/api/**          (tests)  src/server/**/*.test.ts
 ```
 
 ### 7.1 Context layer: `src/server/context/`
@@ -630,19 +715,21 @@ WRITE     buildProposeTx(...) → sign with RESOLVER key → send → confirm   
 - [ ] `scripts/setup-devnet.ts`: create the tUSDC mint (6 decimals, authority = fee payer) → `initialize_config(resolver, council[3], 30, 10 tUSDC)` → print the env values to paste
 - [ ] `faucet.ts` + `POST /api/faucet`; `relay.ts` + `POST /api/relay` (pair with P4 on the first relayed stake)
 - [ ] `resolveMarket.ts` + `POST/GET /api/resolve/[id]` using P4's `buildProposeTx`
+- [ ] `relay.test.ts`: refuses a tx whose fee payer isn't ours, one containing a SystemProgram transfer, and one calling an unknown program
 - [ ] `scripts/doctor.ts` → `npm run doctor` prints a ✅/❌ table: env vars, RPC, SOL balances, Claude ping, Tavily ping, program account exists
 
 **15:30–16:45: Quality + loop**
 - [ ] `loop.ts` + `instrumentation.ts`
 - [ ] Prompt tuning on the 3 demo promises until the draft reads cleanly and the verdict on (a) is correct with ≥ 0.7 confidence
 - [ ] vitest: drafter **rejects** the vague post, a private-person post, and a harm-related post (recorded responses); a citation not in the pack is dropped; confidence 0.65 → council
+- [ ] `tests/api/*.test.ts` (`npm run test:api`, against `npm run dev`): each route returns the `types.ts` shape; missing/bad input → 400; `/api/faucet` twice → `already_claimed`
 - [ ] `scripts/seed.ts`: create the demo markets. The program requires `deadline > now` at creation, so at 16:45 seed market (a) with a deadline **2 minutes ahead**; it will be past by demo time. `DEMO_MODE=1` lets the drafter accept (a) even though its real-world deadline is already in the past.
 
-**Deliverable:** `/api/draft`, `/api/resolve/[id]`, `/api/relay`, `/api/faucet` live; `npm run doctor` all ✅; fixtures for every demo step.
+**Deliverable:** `/api/draft`, `/api/resolve/[id]`, `/api/relay`, `/api/faucet` live; `npm run doctor` all ✅; `npm test` + `npm run test:api` green; fixtures for every demo step.
 
 ---
 
-## 8. P3: Experience layer (pages and design)
+## 8. P3: Frontend UI (pages, design, UI tests)
 
 **Goal:** The screens judges remember. It should feel like a **public record**, not a casino.
 
@@ -721,7 +808,6 @@ WRITE     buildProposeTx(...) → sign with RESOLVER key → send → confirm   
 - [ ] Run the scaffold commands in [§12](#12-tools-accounts-and-setup), installing **every** dependency for every lane now
 - [ ] Create every file in [§4](#4-repo-structure-and-file-ownership) as a stub with an owner header (`// OWNER: P2. Ask before editing`)
 - [ ] `layout.tsx` wraps children in `<Providers>` (P4's stub), fonts, tokens in `globals.css`, Prettier config, `npm run check` script
-- [ ] Merge the `claudemd` branch into `main`. Everyone pulls.
 
 **12:30–14:00: Pages on mocks** (`NEXT_PUBLIC_CHAIN=mock`; P4's mock lands ~12:45)
 - [ ] Components: `MarketCard`, `OddsBar`, `StatusChip`, `Countdown`, `PromiseQuote`, `SourceFingerprint`, `StakePanel`, `MarketTimeline`
@@ -738,18 +824,21 @@ WRITE     buildProposeTx(...) → sign with RESOLVER key → send → confirm   
 - [ ] `/promisers/[handle]` with `PromiserScore` (grouped from `listMarkets()`, no extra on-chain account needed)
 - [ ] `/council`, `/leaderboard` (COULD)
 - [ ] Every status state from §8.3; projector check at 1280×720; dark mode check
+- [ ] `tests/e2e/*.spec.ts` (Playwright, `NEXT_PUBLIC_CHAIN=mock`, P4's burner wallet auto-connects): `create.spec` (accept + reject), `stake.spec` (1 ok, 101 blocked), `resolution.spec` (each status renders), `claim.spec` (receipt shows 40)
+- [ ] `docs/TEST_CHECKLIST.md`: the manual checks Playwright can't do (real Phantom, wrong network, projector, dark mode); run it at CP3
 
-**Deliverable:** every MUST screen finished on live devnet data; the demo is clickable start to finish.
+**Deliverable:** every MUST screen finished on live devnet data; `npm run test:e2e` green; the demo is clickable start to finish.
 
 ---
 
-## 9. P4: Chain client, wallet, relay path, Blinks
+## 9. P4: Frontend wallet + chain (client, Blinks, smoke test)
 
 **Goal:** The bridge. Pages call simple hooks; you turn them into correct Solana transactions, route them through the fee payer, and read on-chain state back as `MarketView`.
 
 ### Files
 ```
-app/src/chain/**   app/src/wallet/**   app/src/app/api/actions/**   app/src/app/actions.json/**   README.md
+app/src/chain/**   app/src/wallet/**   app/src/app/api/actions/**   app/src/app/actions.json/**
+app/scripts/smoke-devnet.ts   app/scripts/demo-reset.ts   README.md   docs/RUNBOOK.md
 ```
 
 ### Key mechanics
@@ -788,25 +877,29 @@ build ix from IDL (program.methods.placeStake(side, amount).accounts({...}).inst
 - [ ] `payout.ts` + `payout.test.ts` (worked example: 10 × 100 ÷ 25 = 40; void refund; nobody on the winning side → refund)
 - [ ] `pdas.ts`, `read.ts`, `anchor.ts` against P1's stub IDL
 - [ ] `tx.ts` builders + `sendViaRelay` + **direct-send fallback** (user pays the fee) behind `NEXT_PUBLIC_GASLESS=0`
-- [ ] `wallet/burner.ts`: a Keypair in `localStorage` exposed as a wallet (backup if Phantom misbehaves; also handy for opening many demo wallets)
+- [ ] `wallet/burner.ts`: a Keypair in `localStorage` exposed as a wallet (backup if Phantom misbehaves; also used by P3's Playwright tests). Auto-connect when `NEXT_PUBLIC_BURNER=1`
 
 **14:00–15:30: Integration (the critical hour)**
 - [ ] Real `createMarket` → `stake` → (P2 propose) → `finalize` → `claim` against devnet, with P1 and P2 at your desk
 - [ ] `hooks.ts` complete; P3 switches `NEXT_PUBLIC_CHAIN=anchor`
 - [ ] `buildProposeTx` handed to P2
+- [ ] `read.test.ts`: base units ÷ 1e6, enum → string, `Pubkey.default` → `null`
+- [ ] `scripts/smoke-devnet.ts` (`npm run smoke:devnet`): 3 fresh keypairs → faucet → create market (deadline +20 s) → stakes Broken 10 / Broken 15 / Kept 75 → `POST /api/resolve` → wait for the window → finalize → claim → **assert +40**. Prints ✅/❌ per step. This passing is **CP2**.
 
 **15:30–16:45**
 - [ ] `challenge`, `councilVote` paths + council wallet switching notes for the demo
 - [ ] Blinks: `actions.json`, `GET/POST /api/actions/stake`, tunnel, dial.to test (COULD)
+- [ ] `scripts/demo-reset.ts`: re-run seed, re-fund demo wallets, print the market URLs for the demo
 - [ ] `README.md`: what it is, architecture diagram, how to run, program ID + Explorer link, team
+- [ ] `docs/RUNBOOK.md`: setup → fund wallets → start server → tunnel → demo reset, with the recovery step for each fallback in §13
 
-**Deliverable:** `NEXT_PUBLIC_CHAIN=anchor` drives the full MUST path gaslessly; mock mode still works with the backend off.
+**Deliverable:** `NEXT_PUBLIC_CHAIN=anchor` drives the full MUST path gaslessly; `npm run smoke:devnet` green; mock mode still works with the backend off.
 
 ---
 
 ## 10. Timeline and checkpoints
 
-| Time | P1: Chain | P2: Server + AI | P3: Web UI | P4: Wallet + Tx |
+| Time | P1: Blockchain | P2: Backend | P3: Frontend UI | P4: Frontend wallet + chain |
 |---|---|---|---|---|
 | **12:00–12:30** | Playground, SOL, stub deploy, IDL | Keys, `types.ts`, `.env.local`, demo promises | **Scaffold → main by 12:25** | `Providers`, `KeptChain` interface, Phantom devnet |
 | **12:30** | ✅ **CP0: contracts locked.** Scaffold on main · everyone runs `npm run dev` · `types.ts` + `chain/index.ts` merged · `.env.local` shared · `npm run check` passes ||||
@@ -814,9 +907,9 @@ build ix from IDL (program.methods.placeStake(side, amount).accounts({...}).inst
 | **12:30–14:00** | Core instructions + worked-example test | Context + Intelligence + `ai:try` + `/api/draft` | Pages on mocks | Mock (12:45), payout, anchor client, tx builders, burner |
 | **14:00** | ✅ **CP1: every lane works alone.** P1 tests green for create/stake/propose/finalize/claim · P2 `ai:try` gives a good draft for (b), a reject for (c), the correct verdict for (a) · P3 every MUST page renders on mocks · P4 reads real markets from devnet. ⚠️ **Go/no-go #2:** Anchor path or custodial, decided now, no going back ||||
 | **14:00–15:30** | Challenge + council; pair with P4 | setup-devnet, faucet, relay, resolve route | Live data, resolution UI, faucet page | **Integration**: real create → stake → finalize → claim |
-| **15:30** | ✅ **CP2: MUST path end to end on devnet:** paste → draft → create → 2 wallets stake → odds move → resolve → 30 s → finalize → claim = 40 ||||
+| **15:30** | ✅ **CP2: MUST path end to end on devnet:** paste → draft → create → 2 wallets stake → odds move → resolve → 30 s → finalize → claim = 40. Proof: `npm run smoke:devnet` ✅ (P4) + `npm run test:api` ✅ (P2) ||||
 | **15:30–16:45** | Hardening, final deploy, `program/` commit | Loop, prompt tuning, guardrail tests, seed | Promiser page, council, polish | Challenge/council tx, Blinks, README |
-| **16:45** | 🧊 **CP3: feature freeze.** Only bug fixes after this. Run `seed.ts` for the demo state. Rehearsal #1 ||||
+| **16:45** | 🧊 **CP3: feature freeze.** Only bug fixes after this. Run `seed.ts` for the demo state. `npm run test:e2e` ✅ (P3) + `docs/TEST_CHECKLIST.md` done. Rehearsal #1 ||||
 | **16:45–17:30** | Explorer links ready | Pre-warm fixtures, check `doctor` | Fix rehearsal bugs, screenshots | Demo wallets funded, tunnel up |
 | **17:30–18:00** | **Rehearsal #2 → record a 2-min backup video → submit Devpost** ||||
 
@@ -894,7 +987,7 @@ git push -u origin p2/context-layer                    # 4. push the branch
 ### Scaffold commands (P3, 12:00)
 
 ```bash
-git switch main && git pull && git merge origin/claudemd       # bring in CLAUDE.md
+git switch main && git pull
 git switch -c p3/scaffold
 npx create-next-app@latest app --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm
 cd app
@@ -903,7 +996,8 @@ npx shadcn@latest add button card badge input textarea dialog tabs progress tool
 npm i @solana/web3.js@1 @solana/spl-token @coral-xyz/anchor@0.30.1 \
       @solana/wallet-adapter-base @solana/wallet-adapter-react @solana/wallet-adapter-react-ui \
       @solana/actions @anthropic-ai/sdk @tavily/core zod bs58 lucide-react server-only
-npm i -D tsx vitest prettier
+npm i -D tsx vitest prettier @playwright/test
+npx playwright install chromium
 ```
 (PowerShell: put the `npm i` on one line or replace `\` with a backtick.) Change the anchor version to `0.29.0` if P1 reports the old IDL format.
 
@@ -912,10 +1006,12 @@ npm i -D tsx vitest prettier
 **`package.json` scripts:**
 ```json
 "dev": "next dev", "build": "next build",
-"check": "tsc --noEmit && vitest run --passWithNoTests",
+"check": "tsc --noEmit && vitest run --passWithNoTests --exclude tests/api",
 "doctor": "tsx scripts/doctor.ts", "keys": "tsx scripts/keys.ts",
 "setup:devnet": "tsx scripts/setup-devnet.ts", "seed": "tsx scripts/seed.ts",
-"ai:try": "tsx scripts/ai-try.ts", "tunnel": "cloudflared tunnel --url http://localhost:3000"
+"ai:try": "tsx scripts/ai-try.ts", "tunnel": "cloudflared tunnel --url http://localhost:3000",
+"test": "vitest run", "test:api": "vitest run tests/api", "test:e2e": "playwright test",
+"smoke:devnet": "tsx scripts/smoke-devnet.ts", "demo:reset": "tsx scripts/demo-reset.ts"
 ```
 
 ### Environment: `app/.env.example` (P2)
@@ -939,6 +1035,7 @@ NEXT_PUBLIC_TUSDC_MINT=
 NEXT_PUBLIC_FEE_PAYER_PUBKEY=
 NEXT_PUBLIC_CHAIN=mock       # mock | anchor | custodial
 NEXT_PUBLIC_GASLESS=1        # 0 = users pay their own (devnet) fees
+NEXT_PUBLIC_BURNER=0         # 1 = auto-connect a burner wallet (tests, backup)
 ```
 
 ### Run
@@ -988,18 +1085,6 @@ npm run tunnel                                                # P4 only, for Bli
 
 ---
 
-## 15. Differences from CLAUDE.md
+## 15. Relationship to CLAUDE.md
 
-`CLAUDE.md` was written for a 10:00–20:00 window. These changes follow from the **12:00–18:00** window and the "no Anchor experience" answer. **Agree on them at 12:00, then the `CLAUDE.md` author updates that file.**
-
-| Topic | CLAUDE.md | This plan | Why |
-|---|---|---|---|
-| Timeline | 10:00–20:00, freeze 17:30 | 12:00–18:00, freeze 16:45 | 6-hour window |
-| Program toolchain | not specified | Solana Playground in the browser, with a custodial fallback | No local Anchor/Rust/WSL setup |
-| Program client owner | Member 3 (frontend lead) | **P4** (`src/chain/`) | P4 owns everything that builds transactions; P3 owns everything that renders |
-| Create flow + challenge/council UI | Member 4 pairs with Member 3 | **P3** builds the pages; P4 provides the hooks | Keeps one owner per folder; pairing on one folder causes conflicts |
-| Blink action endpoints | Member 2 (Member 4 wires the tunnel) | **P4** (`app/api/actions/`) | Blinks reuse P4's transaction builders; P2 already has the most server work |
-| Testing + end-to-end integration | Member 4 is the testing lead | each lane tests its own layer; **checkpoints** are run by someone who didn't build that part | No separate testing lane in 6 hours. If you keep the testing-lead role, give it to P4 from 15:30 onward |
-| Promiser record + forecaster stats | on-chain program features | **derived in the client** from `Market` + `Position` accounts | Fewer instructions; still entirely from chain data, no database |
-| Top-ups | not specified | **one stake per person per market** (1–100) | Simpler `Position` init; matches the cap |
-| Cut order | leaderboard → news → Blinks | news → leaderboard → Blinks → gasless → council | Shorter window |
+`CLAUDE.md` is the short version that Claude Code loads in every session: fixed decisions, business rules, the four roles and their folders. **This file is the full version:** tasks, timeline, contracts and fallbacks. If you change a role, folder or rule, change it in both files in the same commit.
