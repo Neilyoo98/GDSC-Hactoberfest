@@ -21,9 +21,9 @@ export default function RootLayout({
           </a>
           <header>
             <Link href="/" className="brand">
-              kept.
+              kept<span className="brand-dot">.</span>
             </Link>
-            <span className="demo-label">Demo · Test tokens only</span>
+            <span className="demo-label">Demo / Test tokens only</span>
             <ConnectWallet />
             <Link className="primary button" href="/create">
               + Add a promise
