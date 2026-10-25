@@ -1,8 +1,8 @@
 // OWNER: P3
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { markets } from '@/components/kept/demo';
 import { OddsBar, StakePanel, StatusChip } from '@/components/kept/ledger';
+import { ResolutionPanel } from '@/components/kept/resolution';
 export default async function Market({
   params,
 }: {
@@ -10,7 +10,16 @@ export default async function Market({
 }) {
   const { id } = await params;
   const market = markets.find((m) => m.id === Number(id));
-  if (!market) notFound();
+  // Real on-chain markets aren't in the demo list: show the live record instead of a 404.
+  if (!market)
+    return (
+      <>
+        <Link href="/" className="text-link">
+          ← All promises
+        </Link>
+        <ResolutionPanel marketId={Number(id)} />
+      </>
+    );
   return (
     <>
       <Link href="/" className="text-link">
@@ -47,6 +56,7 @@ export default async function Market({
         </article>
         <StakePanel market={market} />
       </div>
+      <ResolutionPanel marketId={Number(id)} />
       <section className="explainer">
         <h2>Public record timeline</h2>
         <p>
