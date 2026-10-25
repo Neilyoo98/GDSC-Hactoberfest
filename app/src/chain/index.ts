@@ -1,6 +1,7 @@
 // app/src/chain/index.ts    OWNER: P4
 import type { PublicKey, Transaction } from "@solana/web3.js";
 import type { MarketView, PositionView, MarketDraft, Side, Outcome } from "@/shared/types";
+import { mockChain } from "./mock";
 
 export interface WalletLike {
   publicKey: PublicKey;
@@ -25,7 +26,7 @@ export interface KeptChain {
 // Hooks for P3 (src/chain/hooks.ts, P4-5): useMarkets(), useMarket(id), usePositions({ owner }), useKeptActions()
 // buildProposeTx (for P2) is re-exported from here in P4-5.
 
-/** NEXT_PUBLIC_CHAIN = "mock" | "anchor" | "custodial". Implementations land in P4-3 (mock) and P4-5 (anchor). */
+/** NEXT_PUBLIC_CHAIN = "mock" | "anchor" | "custodial". anchor + custodial are wired in P4-5. */
 export function getChain(): KeptChain {
-  throw new Error(`chain "${process.env.NEXT_PUBLIC_CHAIN ?? "mock"}" not wired yet (P4-3 adds mock)`);
+  return mockChain;
 }
