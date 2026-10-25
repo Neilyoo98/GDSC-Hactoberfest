@@ -30,9 +30,9 @@ test('empty clicks show validation and filled clicks send exactly one request', 
   await page
     .getByLabel('Public post URL, article URL, or original text')
     .fill(sourceText);
-  await page.getByLabel('Extra guidance for the AI').fill(
-    'Focus on the promised transit improvements.',
-  );
+  await page
+    .getByLabel('Extra guidance for the AI')
+    .fill('Focus on the promised transit improvements.');
   await page
     .getByRole('button', { name: 'Generate AI draft', exact: true })
     .click();
@@ -40,7 +40,7 @@ test('empty clicks show validation and filled clicks send exactly one request', 
     page.getByRole('button', { name: 'Generating AI draft…' }),
   ).toBeDisabled();
   await expect(
-    page.getByRole('status').filter({ hasText: 'Reading the source' }),
+    page.getByRole('status').filter({ hasText: 'AI is reviewing your source' }),
   ).toBeVisible();
   release();
   await expect(
@@ -52,6 +52,7 @@ test('empty clicks show validation and filled clicks send exactly one request', 
   await expect(page.getByLabel('Deadline', { exact: true })).toHaveValue(
     '2099-12-31',
   );
+  await page.getByText('Sources and extra details', { exact: true }).click();
   await expect(page.getByText('a'.repeat(64))).toBeVisible();
   expect(requests).toBe(1);
   expect(errors).toEqual([]);
@@ -255,7 +256,15 @@ for (const path of [
   });
 }
 
-test('unknown market and promiser return 404', async ({ page }) => {
-  expect((await page.goto('/markets/999999'))?.status()).toBe(404);
-  expect((await page.goto('/promisers/does-not-exist'))?.status()).toBe(404);
+test('missing markets and promisers show clear empty states', async ({
+  page,
+}) => {
+  await page.goto('/markets/999999');
+  await expect(
+    page.getByRole('heading', { name: 'Market not found' }),
+  ).toBeVisible();
+  await page.goto('/promisers/does-not-exist');
+  await expect(
+    page.getByRole('heading', { name: 'No public record found' }),
+  ).toBeVisible();
 });
