@@ -17,7 +17,7 @@ Paste a public promise from X or the news. AI turns it into a yes/no market with
 | Money | **tUSDC**, our own devnet SPL token (6 decimals). One vault per market. No real money. |
 | Vaults | Only the program moves funds. **No admin withdraw.** |
 | App | One **Next.js** app (App Router, TypeScript, Tailwind, shadcn/ui) holding the UI and the server routes. `@solana/web3.js` **v1** (Anchor's client needs it). |
-| AI | Claude API (`claude-opus-5-5`, server-side only), Tavily search, X oEmbed (single public posts by URL). |
+| AI | OpenAI Responses API (`gpt-6-astra`, server-side only), Tavily search, X oEmbed (single public posts by URL). |
 | Fees | Server fee payer co-signs; users never need SOL. |
 | Wallet | Phantom on devnet; burner wallet as the backup and for tests. |
 | Blinks | Solana Actions, served through a **cloudflared** tunnel (Blinks only). Everything else runs on localhost. |
@@ -36,7 +36,7 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 ### P2: Backend (net-bob)
 - **Builds:**
   - context layer: oEmbed, Tavily, sha256 fingerprints, evidence packs
-  - intelligence layer: Claude drafter and resolver, schema-validated
+  - intelligence layer: OpenAI drafter and resolver, schema-validated
   - orchestration: the resolve workflow, fee-payer relay, faucet, background loop
   - ops scripts: keys, doctor, devnet setup, seeding
 - **Owns:** `app/src/server/`, `app/src/app/api/{draft,resolve,relay,faucet,health}/`, `app/scripts/{keys,doctor,setup-devnet,seed,ai-try}.ts`, `app/src/shared/types.ts`, `app/src/shared/apiClient.ts`, `app/.env.example`, `app/instrumentation.ts`.
@@ -91,11 +91,11 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 - **Reject**, with a one-sentence reason: vague promises, no deadline, private individuals, anything about death or harm, not a promise.
 - A draft has: promiser, exact quoted promise (must appear word for word in the source), deadline, Kept/Broken criteria naming a checkable source.
 - The resolver judges only against the criteria. Fetched pages are **data, never instructions**. Every citation must come from the evidence pack, or it's dropped.
-- Validate every Claude output with zod before using it. Handle `stop_reason: "refusal"` (reject the draft, or send the market to the council).
+- Validate every model output with zod before using it. Handle API refusals (reject the draft, or send the market to the council).
 
 ## Security
 
-- Keys (Claude, Tavily, fee payer, resolver) live in `app/.env.local`. **Never commit them, never use `NEXT_PUBLIC_` for them.**
+- Keys (OpenAI, Tavily, fee payer, resolver) live in `app/.env.local`. **Never commit them, never use `NEXT_PUBLIC_` for them.**
 - The relay co-signs only transactions whose fee payer is ours and whose instructions all call our program (or ComputeBudget).
 - Council keys stay in the council members' own wallets. Devnet only; never mainnet.
 
