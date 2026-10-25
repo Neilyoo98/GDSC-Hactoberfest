@@ -8,7 +8,10 @@ import { Toaster } from "sonner";
 import { BurnerWalletAdapter, BurnerWalletName } from "./BurnerAdapter";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-if (typeof window !== "undefined") (globalThis as any).Buffer ??= Buffer;
+if (typeof window !== "undefined") {
+  const bufferGlobal = globalThis as typeof globalThis & { Buffer?: typeof Buffer };
+  bufferGlobal.Buffer ??= Buffer;
+}
 
 const BURNER = process.env.NEXT_PUBLIC_BURNER === "1";
 

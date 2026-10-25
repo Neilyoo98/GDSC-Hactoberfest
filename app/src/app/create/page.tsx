@@ -1,15 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAnswerReveal } from '@/components/kept/useAnswerReveal';
 import { AiWorking } from '@/components/kept/AiWorking';
 import { ApiError, draftPromise } from '@/shared/apiClient';
 import { DraftRequestSchema } from '@/shared/draftSchemas';
 import type { DraftRequest, DraftResponse, MarketDraft } from '@/shared/types';
+import { useKeptActions } from '@/chain/hooks';
+import { ConnectWallet } from '@/wallet/ConnectWallet';
 
 const subscribe = () => () => {};
 
 export default function Create() {
+  const router = useRouter();
+  const { wallet, createMarket } = useKeptActions();
   const [sourceInput, setSourceInput] = useState('');
   const [guidanceInput, setGuidanceInput] = useState('');
   const [response, setResponse] = useState<DraftResponse | null>(null);
@@ -17,6 +22,8 @@ export default function Create() {
   const [error, setError] = useState<string | null>(null);
   const [manualSourceText, setManualSourceText] = useState('');
   const [showManualFallback, setShowManualFallback] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const hydrated = useSyncExternalStore(
     subscribe,
     () => true,
@@ -110,6 +117,36 @@ export default function Create() {
         return current;
       return { ...current, draft: { ...current.draft, [key]: value } };
     });
+  }
+
+  async function publishDraft() {
+    if (!response || response.decision !== 'accept' || !response.draft) return;
+    if (!response.source.url) {
+      setCreateError(
+        'Add a public source URL to publish this draft on-chain. Pasted text can still be used to draft the promise.',
+      );
+      return;
+    }
+    if (!wallet) {
+      setCreateError('Connect a Solana wallet before creating the market.');
+      return;
+    }
+    setCreateError(null);
+    setCreating(true);
+    try {
+      const { id } = await createMarket({
+        ...response.draft,
+        sourceUrl: response.source.url,
+        sourceHash: response.source.sha256,
+      });
+      router.push(`/markets/${id}`);
+    } catch (cause) {
+      setCreateError(
+        cause instanceof Error ? cause.message : 'Could not create the market.',
+      );
+    } finally {
+      setCreating(false);
+    }
   }
 
   const draft = response?.decision === 'accept' ? response.draft : null;
@@ -440,14 +477,28 @@ export default function Create() {
                     </summary>
                     <blockquote>{response.source.text}</blockquote>
                   </details>
+                  <p className="muted source-fingerprint">
+                    <b>Source SHA-256</b> · <code>{response.source.sha256}</code>
+                  </p>
                 </details>
+                {!wallet && <ConnectWallet />}
+                {createError && (
+                  <p role="alert" className="negative">{createError}</p>
+                )}
                 <button
-                  className="primary"
-                  disabled
-                  title="Publishing will be available when wallet setup is complete."
+                  className="primary publish-button"
+                  type="button"
+                  disabled={!hydrated || creating || !wallet || !response.source.url}
+                  onClick={() => void publishDraft()}
+                  title={!response.source.url ? 'A public source URL is required for the on-chain record.' : undefined}
                 >
-                  Publish promise · Coming soon
+                  {creating ? 'Waiting for wallet…' : 'Create on Solana'}
                 </button>
+                {!response.source.url && (
+                  <p className="muted">
+                    To publish, use a public source URL. Pasted text remains available as source context.
+                  </p>
+                )}
               </>
             ) : null}
           </div>

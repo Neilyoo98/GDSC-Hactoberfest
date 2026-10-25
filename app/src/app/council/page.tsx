@@ -1,5 +1,5 @@
-// OWNER: P3
 import { CouncilInbox } from '@/components/kept/resolution';
+
 export default function Council() {
   return (
     <>
