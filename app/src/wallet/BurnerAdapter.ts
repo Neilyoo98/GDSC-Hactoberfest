@@ -29,14 +29,17 @@ export class BurnerWalletAdapter extends BaseSignerWalletAdapter {
   }
 
   async connect() {
-    if (this._kp) return;
-    this._connecting = true;
-    try {
-      this._kp = burnerKeypair();
-      this.emit("connect", this._kp.publicKey);
-    } finally {
-      this._connecting = false;
+    if (!this._kp) {
+      this._connecting = true;
+      try {
+        this._kp = burnerKeypair();
+      } finally {
+        this._connecting = false;
+      }
     }
+    // Always emit, even if already connected: React StrictMode mounts the provider twice, and the
+    // second auto-connect hit the early return without "connect", so the app saw no wallet on reload.
+    this.emit("connect", this._kp.publicKey);
   }
 
   async disconnect() {
