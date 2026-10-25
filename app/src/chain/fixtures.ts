@@ -1,5 +1,8 @@
 // app/src/chain/fixtures.ts    OWNER: P4
-import type { MarketView, Proposal } from "@/shared/types";
+import type { MarketView } from "@/shared/types";
+
+// types.ts has no named Proposal type; derive it from MarketView.
+type Proposal = NonNullable<MarketView["proposal"]>;
 
 const now = () => Math.floor(Date.now() / 1000);
 
