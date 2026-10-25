@@ -1,18 +1,20 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { useKeptActions } from '@/chain/hooks';
-import { explorerTx } from '@/chain/relay';
+import { useRouter } from 'next/navigation';
+import { useAnswerReveal } from '@/components/kept/useAnswerReveal';
+import { AiWorking } from '@/components/kept/AiWorking';
 import { ApiError, draftPromise } from '@/shared/apiClient';
-import { LIMITS } from '@/shared/constants';
 import { DraftRequestSchema } from '@/shared/draftSchemas';
 import type { DraftRequest, DraftResponse, MarketDraft } from '@/shared/types';
+import { useKeptActions } from '@/chain/hooks';
+import { ConnectWallet } from '@/wallet/ConnectWallet';
 
 const subscribe = () => () => {};
 
 export default function Create() {
+  const router = useRouter();
+  const { wallet, createMarket } = useKeptActions();
   const [sourceInput, setSourceInput] = useState('');
   const [guidanceInput, setGuidanceInput] = useState('');
   const [response, setResponse] = useState<DraftResponse | null>(null);
@@ -20,17 +22,14 @@ export default function Create() {
   const [error, setError] = useState<string | null>(null);
   const [manualSourceText, setManualSourceText] = useState('');
   const [showManualFallback, setShowManualFallback] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const hydrated = useSyncExternalStore(
     subscribe,
     () => true,
     () => false,
   );
   const activeRequest = useRef<AbortController | null>(null);
-  const actions = useKeptActions();
-  const [creating, setCreating] = useState(false);
-  const [created, setCreated] = useState<{ id: number; sig: string } | null>(
-    null,
-  );
   useEffect(() => () => activeRequest.current?.abort(), []);
 
   async function submitDraft(request: DraftRequest) {
@@ -45,7 +44,6 @@ export default function Create() {
     setLoading(true);
     setError(null);
     setResponse(null);
-    setCreated(null);
     try {
       const next = await draftPromise(parsed.data, controller.signal);
       if (!controller.signal.aborted) {
@@ -106,7 +104,6 @@ export default function Create() {
     setSourceInput(value);
     setError(null);
     setResponse(null);
-    setCreated(null);
     setManualSourceText('');
     setShowManualFallback(false);
   }
@@ -122,40 +119,45 @@ export default function Create() {
     });
   }
 
-  const draft = response?.decision === 'accept' ? response.draft : null;
-
-  async function createOnChain() {
-    if (!response || !draft || creating) return;
-    // The program needs a non-empty source URL (≤ 120 chars). Pasted text has
-    // no URL, so it is referenced by its fingerprint instead.
-    const url = response.source.url ?? '';
-    const sourceUrl =
-      url && url.length <= LIMITS.sourceUrl
-        ? url
-        : `text:${response.source.sha256.slice(0, 16)}`;
+  async function publishDraft() {
+    if (!response || response.decision !== 'accept' || !response.draft) return;
+    if (!response.source.url) {
+      setCreateError(
+        'Add a public source URL to publish this draft on-chain. Pasted text can still be used to draft the promise.',
+      );
+      return;
+    }
+    if (!wallet) {
+      setCreateError('Connect a Solana wallet before creating the market.');
+      return;
+    }
+    setCreateError(null);
     setCreating(true);
     try {
-      setCreated(
-        await actions.createMarket({
-          ...draft,
-          sourceUrl,
-          sourceHash: response.source.sha256,
-        }),
+      const { id } = await createMarket({
+        ...response.draft,
+        sourceUrl: response.source.url,
+        sourceHash: response.source.sha256,
+      });
+      router.push(`/markets/${id}`);
+    } catch (cause) {
+      setCreateError(
+        cause instanceof Error ? cause.message : 'Could not create the market.',
       );
-    } catch {
-      // useKeptActions already shows the error in a toast.
     } finally {
       setCreating(false);
     }
   }
+
+  const draft = response?.decision === 'accept' ? response.draft : null;
+  const reveal = useAnswerReveal(response);
 
   return (
     <>
       <section className="hero compact">
         <h1>Add a promise.</h1>
         <p>
-          Start with a public promise. Review the exact words, deadline, and
-          criteria before signing.
+          Paste a link. Let AI find the promise. Review it before you publish.
         </p>
       </section>
       <section className="form panel">
@@ -200,12 +202,7 @@ export default function Create() {
             preview and reload this page.
           </p>
         </noscript>
-        {loading && (
-          <p role="status">
-            Reading the source and checking the promise. This may take up to 90
-            seconds.
-          </p>
-        )}
+        {loading && <AiWorking />}
         {loading && (
           <button
             type="button"
@@ -252,163 +249,255 @@ export default function Create() {
         )}
 
         {response && (
-          <div className="draft" aria-live="polite">
-            <h2>Source record</h2>
-            {response.source.url ? (
-              <p>
-                <a
-                  href={response.source.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-link"
-                >
-                  Open source ↗
-                </a>
-              </p>
-            ) : (
-              <p className="muted">Pasted text source</p>
+          <div
+            className="draft ai-answer"
+            onFocusCapture={reveal.finish}
+            onPointerDownCapture={reveal.finish}
+          >
+            {!reveal.complete && (
+              <button className="reveal-skip" onClick={reveal.finish}>
+                Show full answer
+              </button>
             )}
-            <details>
-              <summary>
-                Read source text (
-                {response.source.text.length.toLocaleString('en-US')}{' '}
-                characters)
-              </summary>
-              <blockquote>{response.source.text}</blockquote>
-            </details>
-            <p className="muted">
-              <b>SHA-256</b> · <code>{response.source.sha256}</code>
-            </p>
-
             {response.decision === 'reject' ? (
               <div role="status">
                 <h2>Promise not accepted</h2>
-                <p>{response.explanation}</p>
+                {response.source.url ? (
+                  <p>
+                    <a
+                      href={response.source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-link"
+                    >
+                      Open source ↗
+                    </a>
+                  </p>
+                ) : (
+                  <p className="muted">Pasted text source</p>
+                )}
+                <details>
+                  <summary>
+                    Read source text (
+                    {response.source.text.length.toLocaleString('en-US')}{' '}
+                    characters)
+                  </summary>
+                  <blockquote>{response.source.text}</blockquote>
+                </details>
+
+                <p className="answer-text">{reveal.text(0)}</p>
                 <p className="muted">
                   Reason · {response.rejectReason?.replaceAll('_', ' ')}
                 </p>
               </div>
             ) : draft ? (
               <>
-                <h2>02 / Review AI draft</h2>
-                <p role="status">{response.explanation}</p>
+                <div className="answer-heading">
+                  <span className="answer-check" aria-hidden="true">
+                    ✓
+                  </span>
+                  <h2>02 / Review AI draft</h2>
+                </div>
+                <p className="answer-intro">
+                  Who promised what, by when, and how to tell if it happened.
+                </p>
+                {response.source.url && (
+                  <a
+                    className="text-link answer-source"
+                    href={response.source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open source ↗
+                  </a>
+                )}
+                <p className="sr-only" role="status">
+                  AI draft ready. Review and edit the fields below.
+                </p>
                 <label>
-                  Promiser
-                  <input
-                    value={draft.promiser}
-                    onChange={(event) =>
-                      updateDraft('promiser', event.target.value)
-                    }
-                    maxLength={40}
-                  />
+                  Who made the promise
+                  <span className="reveal-field">
+                    <input
+                      className={
+                        !reveal.complete ? 'revealing-input' : undefined
+                      }
+                      aria-label="Promiser"
+                      value={draft.promiser}
+                      onChange={(event) =>
+                        updateDraft('promiser', event.target.value)
+                      }
+                      maxLength={40}
+                    />
+                    {!reveal.complete && (
+                      <span className="reveal-overlay" aria-hidden="true">
+                        {reveal.text(1)}
+                      </span>
+                    )}
+                  </span>
                 </label>
                 <label>
-                  Exact promise <small>{draft.promiseText.length}/240</small>
-                  <textarea
-                    value={draft.promiseText}
-                    onChange={(event) =>
-                      updateDraft('promiseText', event.target.value)
-                    }
-                    maxLength={240}
-                    rows={3}
-                  />
-                </label>
-                <label>
-                  Question
-                  <input
-                    value={draft.question}
-                    onChange={(event) =>
-                      updateDraft('question', event.target.value)
-                    }
-                  />
+                  The promise <small>{draft.promiseText.length}/240</small>
+                  <span className="reveal-field">
+                    <textarea
+                      className={
+                        !reveal.complete ? 'revealing-input' : undefined
+                      }
+                      aria-label="Exact promise"
+                      value={draft.promiseText}
+                      onChange={(event) =>
+                        updateDraft('promiseText', event.target.value)
+                      }
+                      maxLength={240}
+                      rows={3}
+                    />
+                    {!reveal.complete && (
+                      <span className="reveal-overlay" aria-hidden="true">
+                        {reveal.text(2)}
+                      </span>
+                    )}
+                  </span>
                 </label>
                 <label>
                   Deadline
-                  <input
-                    type="date"
-                    value={draft.deadline}
-                    onChange={(event) =>
-                      updateDraft('deadline', event.target.value)
-                    }
-                  />
+                  <span className="reveal-field">
+                    <input
+                      className={
+                        !reveal.complete ? 'revealing-input' : undefined
+                      }
+                      type="date"
+                      value={draft.deadline}
+                      onChange={(event) =>
+                        updateDraft('deadline', event.target.value)
+                      }
+                    />
+                    {!reveal.complete && (
+                      <span className="reveal-overlay" aria-hidden="true">
+                        {reveal.text(4)}
+                      </span>
+                    )}
+                  </span>
                 </label>
                 <label>
-                  ✓ Kept criteria
-                  <textarea
-                    value={draft.criteriaKept}
-                    onChange={(event) =>
-                      updateDraft('criteriaKept', event.target.value)
-                    }
-                    maxLength={160}
-                    rows={3}
-                  />
+                  ✓ Kept if
+                  <span className="reveal-field">
+                    <textarea
+                      className={
+                        !reveal.complete ? 'revealing-input' : undefined
+                      }
+                      value={draft.criteriaKept}
+                      onChange={(event) =>
+                        updateDraft('criteriaKept', event.target.value)
+                      }
+                      maxLength={160}
+                      rows={3}
+                    />
+                    {!reveal.complete && (
+                      <span className="reveal-overlay" aria-hidden="true">
+                        {reveal.text(5)}
+                      </span>
+                    )}
+                  </span>
                 </label>
                 <label>
-                  ✕ Broken criteria
-                  <textarea
-                    value={draft.criteriaBroken}
-                    onChange={(event) =>
-                      updateDraft('criteriaBroken', event.target.value)
-                    }
-                    maxLength={160}
-                    rows={3}
-                  />
+                  ✕ Broken if
+                  <span className="reveal-field">
+                    <textarea
+                      className={
+                        !reveal.complete ? 'revealing-input' : undefined
+                      }
+                      value={draft.criteriaBroken}
+                      onChange={(event) =>
+                        updateDraft('criteriaBroken', event.target.value)
+                      }
+                      maxLength={160}
+                      rows={3}
+                    />
+                    {!reveal.complete && (
+                      <span className="reveal-overlay" aria-hidden="true">
+                        {reveal.text(6)}
+                      </span>
+                    )}
+                  </span>
                 </label>
-                <label>
-                  Check source
-                  <input
-                    value={draft.checkSource}
-                    onChange={(event) =>
-                      updateDraft('checkSource', event.target.value)
-                    }
-                  />
-                </label>
-                {draft.assumptions.length > 0 && (
-                  <div>
-                    <h3>Assumptions</h3>
-                    <ul>
-                      {draft.assumptions.map((assumption) => (
-                        <li key={assumption}>{assumption}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {created ? (
-                  <div role="status">
-                    <h3 className="positive">✓ Saved as market #{created.id}</h3>
-                    <p>
-                      <Link href={`/markets/${created.id}`} className="text-link">
-                        Open the market ↗
-                      </Link>
-                      {!created.sig.startsWith('mock') && (
-                        <>
-                          {' · '}
-                          <a
-                            href={explorerTx(created.sig)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-link"
-                          >
-                            View on Solana Explorer ↗
-                          </a>
-                        </>
+                <details className="answer-details">
+                  <summary>Sources and extra details</summary>{' '}
+                  <label>
+                    Question
+                    <span className="reveal-field">
+                      <input
+                        className={
+                          !reveal.complete ? 'revealing-input' : undefined
+                        }
+                        value={draft.question}
+                        onChange={(event) =>
+                          updateDraft('question', event.target.value)
+                        }
+                      />
+                      {!reveal.complete && (
+                        <span className="reveal-overlay" aria-hidden="true">
+                          {reveal.text(3)}
+                        </span>
                       )}
-                    </p>
-                  </div>
-                ) : actions.wallet ? (
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={createOnChain}
-                    disabled={creating}
-                  >
-                    {creating ? 'Creating on Solana…' : 'Create on Solana'}
-                  </button>
-                ) : (
-                  <div>
-                    <p className="muted">Connect a wallet to create this market.</p>
-                    <WalletMultiButton />
-                  </div>
+                    </span>
+                  </label>
+                  <label>
+                    Check source
+                    <span className="reveal-field">
+                      <input
+                        className={
+                          !reveal.complete ? 'revealing-input' : undefined
+                        }
+                        value={draft.checkSource}
+                        onChange={(event) =>
+                          updateDraft('checkSource', event.target.value)
+                        }
+                      />
+                      {!reveal.complete && (
+                        <span className="reveal-overlay" aria-hidden="true">
+                          {reveal.text(7)}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                  {draft.assumptions.length > 0 && (
+                    <div>
+                      <h3>What the AI assumed</h3>
+                      <ul>
+                        {draft.assumptions.map((assumption) => (
+                          <li key={assumption}>{assumption}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <details>
+                    <summary>
+                      Read source text (
+                      {response.source.text.length.toLocaleString('en-US')}{' '}
+                      characters)
+                    </summary>
+                    <blockquote>{response.source.text}</blockquote>
+                  </details>
+                  <p className="muted source-fingerprint">
+                    <b>Source SHA-256</b> · <code>{response.source.sha256}</code>
+                  </p>
+                </details>
+                {!wallet && <ConnectWallet />}
+                {createError && (
+                  <p role="alert" className="negative">{createError}</p>
+                )}
+                <button
+                  className="primary publish-button"
+                  type="button"
+                  disabled={!hydrated || creating || !wallet || !response.source.url}
+                  onClick={() => void publishDraft()}
+                  title={!response.source.url ? 'A public source URL is required for the on-chain record.' : undefined}
+                >
+                  {creating ? 'Waiting for wallet…' : 'Create on Solana'}
+                </button>
+                {!response.source.url && (
+                  <p className="muted">
+                    To publish, use a public source URL. Pasted text remains available as source context.
+                  </p>
                 )}
               </>
             ) : null}

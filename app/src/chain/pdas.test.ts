@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import rawIdl from "../shared/idl/kept.json";
 
-const idl = rawIdl as any;
+const idl = rawIdl;
 const PROGRAM = new PublicKey(idl.address);
 const admin = Keypair.generate().publicKey;
 const user = Keypair.generate().publicKey;
@@ -18,11 +18,17 @@ const u64le = (n: number) => {
 
 /** Derive an account's PDA from the IDL seeds, resolving account/arg paths from ctx. */
 function fromIdl(ix: string, account: string, ctx: Record<string, Buffer>): PublicKey {
-  const acc = idl.instructions.find((i: any) => i.name === ix).accounts.find((a: any) => a.name === account);
-  const seeds = acc.pda.seeds.map((s: any) => {
-    if (s.kind === "const") return Buffer.from(s.value);
-    if (!(s.path in ctx)) throw new Error(`no ctx for seed ${s.path}`);
-    return ctx[s.path];
+  const instruction = idl.instructions.find((item) => item.name === ix);
+  const accountInfo = instruction?.accounts.find((item) => item.name === account);
+  if (!accountInfo?.pda) throw new Error(`No PDA definition for ${ix}.${account}`);
+  const seeds = accountInfo.pda.seeds.map((seed) => {
+    if (seed.kind === "const") {
+      if (!seed.value) throw new Error(`const seed missing value for ${ix}.${account}`);
+      return Buffer.from(seed.value);
+    }
+    const path = seed.path;
+    if (typeof path !== 'string' || !ctx[path]) throw new Error(`no ctx for seed ${path}`);
+    return ctx[path];
   });
   return PublicKey.findProgramAddressSync(seeds, PROGRAM)[0];
 }

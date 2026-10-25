@@ -1,10 +1,16 @@
 // app/src/chain/payout.test.ts    OWNER: P4
 import { describe, it, expect } from "vitest";
 import { payout } from "./payout";
+import type { MarketView } from "@/shared/types";
 
-const m = (o: any = {}) => ({
-  status: "finalized", final: "broken", totals: { kept: 75, broken: 25 }, forfeitedBonds: 0, ...o,
-}) as any;
+type PayoutMarket = Pick<MarketView, "status" | "final" | "totals" | "forfeitedBonds">;
+const m = (overrides: Partial<PayoutMarket> = {}): PayoutMarket => ({
+  status: "finalized",
+  final: "broken",
+  totals: { kept: 75, broken: 25 },
+  forfeitedBonds: 0,
+  ...overrides,
+});
 
 describe("payout", () => {
   it("worked example: 10 × 100 ÷ 25 = 40", () =>

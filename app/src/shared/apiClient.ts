@@ -1,5 +1,6 @@
 import type { DraftRequest, DraftResponse } from './types';
-import { DraftResponseSchema } from './draftSchemas';
+import { DraftResponseSchema, ResolveResponseSchema } from './draftSchemas';
+import type { ResolveResponse } from './types';
 
 export class ApiError extends Error {
   constructor(
@@ -85,6 +86,21 @@ export async function draftPromise(
   if (!result.success)
     throw new ApiError(
       'The server returned an invalid draft. Please try again.',
+      502,
+      'invalid_response',
+    );
+  return result.data;
+}
+
+export async function resolvePromise(
+  marketId: number,
+  signal?: AbortSignal,
+): Promise<ResolveResponse> {
+  const payload = await postJson(`/api/resolve/${marketId}`, {}, signal);
+  const result = ResolveResponseSchema.safeParse(payload);
+  if (!result.success)
+    throw new ApiError(
+      'The server returned an invalid resolution. Please try again.',
       502,
       'invalid_response',
     );

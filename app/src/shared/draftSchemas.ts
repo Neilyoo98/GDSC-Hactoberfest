@@ -90,4 +90,23 @@ export const DraftResponseSchema = z.intersection(
   z.object({ source: SourceDocSchema }),
 );
 
+export const ResolveResponseSchema = z.object({
+  marketId: z.number().int().nonnegative(),
+  verdict: z.enum(['kept', 'broken', 'unclear']),
+  confidence: z.number().min(0).max(1),
+  summary: z.string().min(1).max(280),
+  citations: z.array(z.object({
+    url: HttpUrlSchema,
+    title: z.string().min(1).max(120),
+    quote: z.string().min(1).max(500),
+  }).strict()).max(3),
+  action: z.enum(['proposed', 'sent_to_council', 'skipped']),
+  txSig: z.string().nullable(),
+  trace: z.array(z.object({
+    at: z.number().int(),
+    step: z.enum(['read', 'search', 'judge', 'validate', 'write']),
+    detail: z.string().max(500),
+  }).strict()),
+}).strict();
+
 export type DraftOutput = z.infer<typeof DraftSchema>;
