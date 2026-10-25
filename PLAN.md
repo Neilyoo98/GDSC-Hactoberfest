@@ -13,13 +13,13 @@
 
 Politicians, companies and public figures make promises every day: *"We'll fix this road by spring." "Net zero by 2030." "Launching next month."* Almost nobody checks back. Posts get deleted, pages get edited, people forget.
 
-**Kept** turns any public promise into a yes/no market with a deadline. People put capped test stakes on **Kept** or **Broken**, so the odds show how believable the promise is. When the deadline passes, AI researches what happened and proposes a result **with sources**. Anyone who predicted can challenge it, a 3-person council settles disputes, and the program pays the winners. The promise, a fingerprint of its source, and the result stay on Solana, where nobody can quietly delete them, including us.
+**Kept** turns any public promise into a yes/no market with a deadline. People put capped test stakes on **Kept** or **Broken**, so the odds show how believable the promise is. When the deadline passes, AI researches what happened and proposes a result **with sources**. Anyone who predicted can challenge it, **anyone** can settle the dispute in a public tUSDC-weighted vote, and the program pays the winners. The promise, a fingerprint of its source, and the result stay on Solana, where nobody can quietly delete them, including us.
 
 ---
 
 ## The Pitch (say this to judges)
 
-> "Every day public figures make promises, and nobody keeps score. Kept turns a promise into a question with a deadline. People stake test USDC on whether it'll be kept, so the odds measure trust before the deadline. After it, AI checks what happened and shows its sources, anyone can challenge, and a council settles disputes. The money sits in a vault only the program can move, and the record can't be edited by anyone, not even us."
+> "Every day public figures make promises, and nobody keeps score. Kept turns a promise into a question with a deadline. People stake test USDC on whether it'll be kept, so the odds measure trust before the deadline. After it, AI checks what happened and shows its sources, anyone can challenge, and the public settles disputes by voting with locked test USDC. The money sits in a vault only the program can move, and the record can't be edited by anyone, not even us."
 
 **Hard rules:** devnet and test tokens only · stakes capped at 100 per person · public figures and organizations only · the AI must cite what it read, and below 0.7 confidence it doesn't decide at all.
 
@@ -47,8 +47,8 @@ Wallet A stakes 10 on Broken, wallet B stakes 75 on Kept (two browser windows). 
 A seeded market past its deadline → "Run resolution" → research trace streams in (queries, sources, verdict, confidence 0.86) → proposal written on-chain → 30-second challenge ring starts.
 > "It shows its sources. Below 0.7 confidence it hands the decision to people."
 
-### Scene 6: Challenge → Council (25 sec)
-Wallet A challenges a second market (10 tUSDC bond). Two council wallets vote. The result settles.
+### Scene 6: Challenge → Public Vote (25 sec)
+Wallet A challenges a second market (10 tUSDC bond). Two wallets lock tUSDC on the outcome they believe; after 30 s the side with the most locked tUSDC wins, and its voters split the losers' locks.
 
 ### Scene 7: Claim + Record (15 sec) · **hero moment**
 Winner claims **10 × 100 ÷ 25 = 40 tUSDC** → payout receipt. The promiser record updates to *Broken +1*.
@@ -61,7 +61,7 @@ Winner claims **10 × 100 ÷ 25 = 40 tUSDC** → payout receipt. The promiser re
 | 3 | Create, 0 SOL, Explorer link | 20s | P4 (wallet) · P1 (Explorer) |
 | 4 | Two wallets stake, odds move | 30s | P4 |
 | 5 | AI research trace + on-chain proposal | 35s | P2 |
-| 6 | Challenge + council vote | 25s | P1 |
+| 6 | Challenge + public vote | 25s | P1 |
 | 7 | Claim 40 + record update | 15s | P4 · P1 |
 
 **Rehearse scenes 2, 5 and 7 the most.**
@@ -77,7 +77,7 @@ Winner claims **10 × 100 ÷ 25 = 40 tUSDC** → payout receipt. The promiser re
 | **P3** | ________ | **Frontend: UI** | `app/package.json`, pages, `layout.tsx`, `globals.css`, `app/src/components/`, `app/tests/e2e/` | P4 |
 | **P4** | aaron | **Frontend: wallet + chain** | `app/src/chain/`, `app/src/wallet/`, Blinks routes, `app/scripts/{smoke-devnet,demo-reset}.ts`, `README.md`, `docs/RUNBOOK.md` | P3 |
 
-**Council wallets for the demo:** P1, P2 and P3 each make a second Phantom account named `Kept Council N` and send its public key to P1 before 13:30.
+**Voting for the demo:** anyone with tUSDC can vote, so no special wallets are needed. Use Wallet A / Wallet B (P4) plus any teammate's wallet.
 
 ---
 
@@ -129,7 +129,7 @@ One AI key: `ANTHROPIC_API_KEY`. Search: `TAVILY_API_KEY`.
 
 **Layer rules:** Context never calls Claude. Intelligence is a pure function (inputs → validated output) that never touches the chain. Only Orchestration holds keys. The UI imports only hooks and `apiClient`, never `src/server/**`.
 
-**Market life:** `Open` → (deadline) → AI proposes → Kept/Broken ≥ 0.7 → `Proposed` → (30 s, no challenge) → `Finalized` → claim. Below 0.7 or unclear → `Council`. Challenged → `Challenged` → 2 of 3 council votes → `Finalized` or `Void` (refunds).
+**Market life:** `Open` → (deadline) → AI proposes → Kept/Broken ≥ 0.7 → `Proposed` → (30 s, no challenge) → `Finalized` → claim. Below 0.7, unclear, or challenged → `Voting`: anyone locks 1–100 tUSDC on Kept / Broken / Void for 30 s → `finalize` → most locked tUSDC wins (`Finalized`); tie or no votes → `Void` (everyone refunded). Winning voters split the whole vote pool.
 
 ---
 
@@ -190,7 +190,7 @@ The producer finishes; the **consumer** checks it works for them before anyone b
 | H5 | Mock chain + fixtures | P4 | **P3** | 12:45 | Every market status renders on the home page |
 | H6 | PDA seeds (`pdas.ts`) | P4 | **P1** | 13:15 | Derived addresses match the program's seeds |
 | H7 | Frozen IDL | P1 | **P2 + P4** | 13:30 | Regenerated client compiles; `npm run check` passes |
-| H8 | Devnet config + mint (`setup-devnet.ts`) | P2 | **P1** | 14:10 | Config on Explorer: right resolver, council, 30 s window, 10 tUSDC bond |
+| H8 | Devnet config + mint (`setup-devnet.ts`) | P2 | **P1** | 14:10 | Config on Explorer: right resolver, mint, 30 s challenge + vote windows, 10 tUSDC bond |
 | H9 | Tx builders + `buildProposeTx` | P4 | **P2** | 14:20 | P2's dry-run propose succeeds on a test market |
 | H10 | `/api/relay` + `/api/faucet` | P2 | **P4** | 14:30 | First relayed stake lands; faucet gives 100 tUSDC once |
 | H11 | Relay allowlist (security) | P2 | **P1** | 14:40 | A SystemProgram transfer through relay is refused |
@@ -249,7 +249,7 @@ Step IDs match each person's section (`P3-1` = Person 3, Step 1). **Rows at the 
 | 7 | 12:45–14:00 | P4-4/5 PDAs, payout, read/anchor/tx, burner | P4 | H4 | H6, P4-7 |
 | 8 | 13:15 | ✔ **H6** P1 checks P4's PDAs | P1 | P4-4 | P4-5 |
 | 9 | 13:30 | P1-7 Freeze IDL → ✔ **H7** P2 + P4 check | P1 → P2, P4 | P1-5 green | P2-7, P4-5 |
-| 9 | 13:30 | P1-8 Collect council keys, agree config values | P1 | council keys from P1/P2/P3 | P2-7 |
+| 9 | 13:30 | P1-8 Agree config values with P2 | P1 | nothing | P2-7 |
 | 10 | **14:00** | ✅ **CP1** · ⚠️ **Go/no-go #2** (Anchor or custodial, final) | everyone | rows 1–9 | rows 11+ |
 | 11 | 14:00 | P2-7 `setup-devnet.ts` (mint + config) | P2 | H7, P1-8 | H8, P4-7 |
 | 12 | 14:10 | ✔ **H8** P1 checks Config on Explorer | P1 | P2-7 | P2-8, P4-7 |
@@ -263,7 +263,7 @@ Step IDs match each person's section (`P3-1` = Person 3, Step 1). **Rows at the 
 | 15 | 14:45 | Session: full money path by hand | P1, P2, P4 | P2-9, P4-7 | P4-8 |
 | 16 | 14:30–15:30 | P4-8 `smoke-devnet.ts` | P4 | P2-9, P2-8 | **H13** |
 | 17 | **15:30** | ✅ **CP2** (H13 + `test:api` + P3 click-through) | everyone | rows 11–16 | rows 18+ |
-| 18 | 15:30–16:45 | P1-12 Hardening · P2-11 Quality + seed · P3-8/9 Council pages + Playwright · P4-9/10 Challenge + Blinks | each | CP2 | CP3 |
+| 18 | 15:30–16:45 | P1-12 Hardening · P2-11 Quality + seed · P3-8/9 Vote page + Playwright · P4-9/10 Challenge, vote + Blinks | each | CP2 | CP3 |
 | 19 | **16:45** | 🧊 **CP3** freeze · `seed.ts` · rehearsal #1 | everyone | row 18 | demo |
 | 20 | 16:45–17:30 | P1-13 · P2-12 · P3-10 · P4-11 Demo prep | each | CP3 | rehearsal #2 |
 | 21 | 17:30–18:00 | Rehearsal #2 → backup video → submit Devpost | everyone | row 20 | done |
@@ -325,9 +325,8 @@ program/   app/src/shared/idl/   app/src/shared/constants.ts   app/src/chain/cus
 - ⚠️ **Go/no-go #1 (12:45):** program on devnet + IDL in repo? If not, tell the team and start `custodial.ts` (see **Fallbacks**)
 
 **P1-5 · 12:45–13:15 · Playground tests**
-- [ ] Test tab → Run (~1 minute). All 5 must pass: worked example (+40), bad stakes, council void, overturned challenge, late challenge
+- [ ] Test tab → Run (~1 minute). All 6 must pass: worked example (+40), bad stakes/votes, unsure AI → public vote (losers pay winners), challenge overturned by vote (+bond), tie → Void refunds, late challenge
 - [ ] Fix → rebuild → redeploy → rerun until green
-- [ ] Ask P1/P2/P3 for their council public keys (needed by P1-8)
 
 **P1-6 · 13:15 · Check P4's PDAs (H6)**
 - ⏳ Waits for: P4-4
@@ -342,7 +341,7 @@ program/   app/src/shared/idl/   app/src/shared/constants.ts   app/src/chain/cus
 - ➡️ Unblocks: P2-7, P4-5
 
 **P1-8 · 13:30–14:00 · Config values**
-- [ ] Send P2 the 3 council public keys + agreed values: admin = fee payer, resolver = resolver key, window = 30 s, bond = 10 tUSDC
+- [ ] Send P2 the agreed values: admin = fee payer, resolver = resolver key, challenge window = 30 s, vote window = 30 s, bond = 10 tUSDC
 - ➡️ Unblocks: P2-7
 
 **P1-9 · 14:00 · ✅ CP1 + Go/no-go #2**
@@ -351,7 +350,7 @@ program/   app/src/shared/idl/   app/src/shared/constants.ts   app/src/chain/cus
 
 **P1-10 · 14:10 · Check P2's devnet setup (H8)**
 - ⏳ Waits for: P2-7
-- [ ] Open the Config account on Explorer: resolver, council[3], mint, window = 30, bond = 10,000,000
+- [ ] Open the Config account on Explorer: resolver, mint, challenge window = 30, vote window = 30, bond = 10,000,000
 - ➡️ Unblocks: P2-8, P4-7
 
 **P1-11 · 14:10–15:30 · Integration support**
@@ -365,7 +364,7 @@ program/   app/src/shared/idl/   app/src/shared/constants.ts   app/src/chain/cus
 - [ ] Review P2's PRs; help whoever is blocked
 
 **P1-13 · 16:45–18:00 · Demo**
-- [ ] Rehearsal: narrate **scene 6** (council) and show Explorer in **scenes 3 and 7**
+- [ ] Rehearsal: narrate **scene 6** (public vote) and show Explorer in **scenes 3 and 7**
 
 **Deliverable:** program on devnet, Playground tests green, IDL + constants on `main`, Explorer tabs ready.
 
@@ -432,8 +431,8 @@ app/src/shared/types.ts   app/src/shared/apiClient.ts   app/.env.example   app/i
 - [ ] Show `ai:try`: a good draft for (b), a rejection for (c), the correct verdict for (a)
 
 **P2-7 · 14:00–14:10 · Devnet setup (H8)**
-- ⏳ Waits for: **H7** (frozen IDL) and **P1-8** (council keys + values)
-- [ ] `scripts/setup-devnet.ts`: create tUSDC mint (authority = fee payer) → `initialize_config(resolver, council[3], 30, 10 tUSDC)` with admin = fee payer → print `NEXT_PUBLIC_TUSDC_MINT`, `NEXT_PUBLIC_CONFIG_ADMIN`, `NEXT_PUBLIC_FEE_PAYER_PUBKEY`
+- ⏳ Waits for: **H7** (frozen IDL) and **P1-8** (config values)
+- [ ] `scripts/setup-devnet.ts`: create tUSDC mint (authority = fee payer) → `initialize_config(resolver, 30, 30, 10 tUSDC)` (resolver, challenge window, vote window, bond) with admin = fee payer → print `NEXT_PUBLIC_TUSDC_MINT`, `NEXT_PUBLIC_CONFIG_ADMIN`, `NEXT_PUBLIC_FEE_PAYER_PUBKEY`
 - [ ] Post the new env values in chat
 - ➡️ Unblocks: **H8** (P1 checks Config), P4-7
 
@@ -460,7 +459,7 @@ app/src/shared/types.ts   app/src/shared/apiClient.ts   app/.env.example   app/i
 **P2-11 · 15:30–16:45 · Quality + seed**
 - [ ] `loop.ts` + `instrumentation.ts` (`RESOLVER_LOOP=1`)
 - [ ] Tune prompts until (a)'s verdict is right at ≥ 0.7 and drafts read cleanly
-- [ ] Guardrail tests (recorded responses): rejects vague / private person / harm; foreign citation dropped; 0.65 → council
+- [ ] Guardrail tests (recorded responses): rejects vague / private person / harm; foreign citation dropped; 0.65 → public vote
 - [ ] `scripts/seed.ts`; at **16:45** seed (a) with a deadline 2 minutes ahead
 - [ ] Review P1's PRs
 
@@ -501,7 +500,7 @@ app/src/components/**   app/tests/e2e/**   docs/TEST_CHECKLIST.md
 
 ### Design: "the civic ledger"
 - **Type:** Newsreader (serif) for the quoted promise · Inter for UI · JetBrains Mono for amounts, hashes, countdowns
-- **Color tokens** (light; dark via `prefers-color-scheme`): paper `#FAFAF7` · ink `#16181D` · muted `#6B6F76` · line `#E4E2DA` · kept `#1F7A4D` · broken `#B42318` · pending `#B54708` · council `#5B4BC4` · focus `#2563EB`
+- **Color tokens** (light; dark via `prefers-color-scheme`): paper `#FAFAF7` · ink `#16181D` · muted `#6B6F76` · line `#E4E2DA` · kept `#1F7A4D` · broken `#B42318` · pending `#B54708` · vote `#5B4BC4` · focus `#2563EB`
 - **Never color alone:** Kept = ✓ + green + the word; Broken = ✕ + vermilion + the word
 - **Motion:** odds bar width 300 ms ease-out, countdown ring, toasts. Nothing bounces. Respect reduced motion
 - **Scale:** base 17px; odds and payout numbers 40px+; test at 1280×720
@@ -512,12 +511,12 @@ app/src/components/**   app/tests/e2e/**   docs/TEST_CHECKLIST.md
 | `/` | Market grid, status filters, "Paste a promise" CTA |
 | `/create` | URL input (+ "paste text instead") → source card + fingerprint → editable draft with char counters → reject state → Create |
 | `/markets/[id]` | Quote, criteria, source + fingerprint · stake panel · odds · timeline · resolution card with sources, research trace, challenge button · payout receipt |
-| `/council` | Markets in review, the AI proposal + evidence, vote buttons, current votes |
+| `/council` (vote page) | Markets in `voting`, the AI proposal + evidence, Kept / Broken / Void buttons with a 1–100 tUSDC lock, live tally, countdown, claim-vote button |
 | `/promisers/[handle]` | Kept · Broken · Pending record + their markets |
 | `/leaderboard` | Wallet, markets, accuracy %, net tUSDC (stretch) |
 | `/faucet` | Connect → claim 100 tUSDC → balance |
 
-Every status has its own look: Open · Resolving · Proposed (countdown) · Challenged/Council · Finalized (claim) · Void (refund). Plus empty, loading (skeletons), error with retry, wallet not connected, no tUSDC.
+Every status has its own look: Open · Resolving · Proposed (countdown) · Voting (tally + countdown) · Finalized (claim) · Void (refund). Plus empty, loading (skeletons), error with retry, wallet not connected, no tUSDC.
 
 ### Steps
 
@@ -557,8 +556,8 @@ Every status has its own look: Open · Resolving · Proposed (countdown) · Chal
 - [ ] ✔ With P2: `/create` calls `apiClient.draft()`, the draft fits the form and text limits, rejection shows the reason
 - [ ] ✅ **CP2:** click through the smoke-test markets live
 
-**P3-8 · 15:30–16:15 · Council + record pages**
-- [ ] `/council`, `/promisers/[handle]`, `/leaderboard` (stretch)
+**P3-8 · 15:30–16:15 · Vote + record pages**
+- [ ] `/council` (public vote), `/promisers/[handle]`, `/leaderboard` (stretch)
 - [ ] Every status state; dark mode; 1280×720
 
 **P3-9 · 16:15–16:45 · UI tests**
@@ -655,8 +654,8 @@ app/scripts/{smoke-devnet,demo-reset}.ts   README.md   docs/RUNBOOK.md
 - [ ] ✅ **CP2:** `npm run smoke:devnet` green
 - ➡️ Unblocks: everything after 15:30
 
-**P4-9 · 15:30–16:15 · Challenge + council**
-- [ ] `challenge`, `councilVote` through hooks; council-wallet switching notes for the demo
+**P4-9 · 15:30–16:15 · Challenge + vote**
+- [ ] `challenge`, `castVote`, `claimVote` through hooks (+ `votePda` = `["vote", market, voter]`); demo notes for voting from Wallet A / B
 - [ ] Review P3's PRs
 
 **P4-10 · 16:15–16:45 · Blinks (stretch)**
@@ -680,7 +679,7 @@ app/scripts/{smoke-devnet,demo-reset}.ts   README.md   docs/RUNBOOK.md
 export type Side = "kept" | "broken";
 export type Verdict = Side | "unclear";
 export type Outcome = Side | "void";
-export type MarketStatus = "open" | "proposed" | "challenged" | "council" | "finalized" | "void";
+export type MarketStatus = "open" | "proposed" | "voting" | "finalized" | "void";
 
 export interface MarketView {
   id: number; pubkey: string; creator: string;
@@ -694,11 +693,12 @@ export interface MarketView {
   status: MarketStatus;
   proposal: null | { verdict: Verdict; confidence: number; summary: string; sources: string[]; proposedAt: number; windowEndsAt: number };
   challenger: string | null;
-  votes: (Outcome | null)[];  // 3 seats
+  vote: { kept: number; broken: number; void: number; endsAt: number | null; refund: boolean };  // locked tUSDC per outcome
   final: Outcome | null;
   forfeitedBonds: number;
 }
 export interface PositionView { market: number; owner: string; side: Side; amount: number; claimed: boolean }
+export interface VoteView { market: number; voter: string; choice: Outcome; amount: number; claimed: boolean }
 
 export interface SourceDoc { kind: "x_post" | "article" | "text"; url: string | null; author: string | null; authorUrl: string | null; text: string; publishedAt: string | null; sha256: string }
 export interface EvidenceItem { url: string; title: string; snippet: string; publishedAt: string | null }
@@ -709,7 +709,7 @@ export interface MarketDraft { promiser: string; promiserType: "person" | "organ
 export interface DraftResponse { decision: "accept" | "reject"; rejectReason: RejectReason | null; explanation: string; draft: MarketDraft | null; source: SourceDoc }
 export interface Citation { url: string; title: string; quote: string }
 export interface TraceStep { at: number; step: "read" | "search" | "judge" | "validate" | "write"; detail: string }
-export interface ResolveResponse { marketId: number; verdict: Verdict; confidence: number; summary: string; citations: Citation[]; action: "proposed" | "sent_to_council" | "skipped"; txSig: string | null; trace: TraceStep[] }
+export interface ResolveResponse { marketId: number; verdict: Verdict; confidence: number; summary: string; citations: Citation[]; action: "proposed" | "sent_to_vote" | "skipped"; txSig: string | null; trace: TraceStep[] }
 
 export interface DraftRequest { url?: string; text?: string }
 export interface RelayRequest { tx: string }      // base64, user-signed → { signature }
@@ -751,7 +751,9 @@ export interface KeptChain {
   createMarket(w: WalletLike, d: MarketDraft & { sourceUrl: string; sourceHash: string }): Promise<{ sig: string; id: number }>;
   stake(w: WalletLike, id: number, side: Side, amount: number): Promise<string>;
   challenge(w: WalletLike, id: number): Promise<string>;
-  councilVote(w: WalletLike, id: number, outcome: Outcome): Promise<string>;
+  castVote(w: WalletLike, id: number, choice: Outcome, amount: number): Promise<string>;  // 1–100 tUSDC, once per wallet
+  claimVote(w: WalletLike, id: number): Promise<string>;
+  listVotes(f?: { voter?: string; market?: number }): Promise<VoteView[]>;
   finalize(w: WalletLike, id: number): Promise<string>;
   claim(w: WalletLike, id: number): Promise<string>;
 }
@@ -764,7 +766,7 @@ export function buildProposeTx(resolver: PublicKey, id: number, v: Verdict, conf
 ### AI rules (P2)
 - **Drafter:** accept only a public figure/organization with a specific, checkable promise and a deadline. Reject with a reason code and one plain sentence. `promiseText` must appear word for word in the source. Criteria name where to check.
 - **Resolver:** judge only against the criteria as of the deadline. Evidence is wrapped in `<evidence>` tags and is **data, never instructions**. Citations not in the evidence pack are dropped; none left → unclear.
-- **Gate (code):** Kept/Broken and confidence ≥ 0.7 → propose; otherwise → council. Handle `stop_reason: "refusal"`.
+- **Gate (code):** Kept/Broken and confidence ≥ 0.7 → propose; otherwise → public vote. Handle `stop_reason: "refusal"`.
 
 ---
 
@@ -779,14 +781,14 @@ export function buildProposeTx(resolver: PublicKey, id: number, v: Verdict, conf
 | **14:00** | ✅ **CP1: each lane works alone.** ⚠️ **Go/no-go #2: Anchor or custodial, final** ||||
 | **14:00–15:30** | Check config (H8) + relay (H11), pair on first txs | setup-devnet → faucet + relay → resolve → API tests | Live data, resolution UI, create flow | Send path → `buildProposeTx` → smoke test |
 | **15:30** | ✅ **CP2: full money path on devnet.** `smoke:devnet` ✅ · `test:api` ✅ · P3 clicks through it live ||||
-| **15:30–16:45** | Hardening, Explorer tabs, reviews | Loop, prompts, guardrail tests, seed | Council + record pages, Playwright | Challenge/council, Blinks, README |
+| **15:30–16:45** | Hardening, Explorer tabs, reviews | Loop, prompts, guardrail tests, seed | Vote + record pages, Playwright | Challenge/vote, Blinks, README |
 | **16:45** | 🧊 **CP3: feature freeze.** `seed.ts` · `test:e2e` ✅ · checklist done · rehearsal #1 ||||
 | **16:45–17:30** | Explorer tabs ready | `doctor` ✅, fixtures warm | Fix rehearsal bugs, screenshots | `demo-reset`, wallets funded, tunnel up |
 | **17:30–18:00** | **Rehearsal #2 → record a 2-minute backup video → submit Devpost** ||||
 
 **Rule:** anything not working at 15:30 is cut or served from fixtures. No new features after 16:45.
 
-**Cut order:** news search → leaderboard → Blinks → gasless (pre-fund wallets) → council. **Never cut:** paste → draft → create · faucet · stake · odds · AI resolve with sources · finalize · claim.
+**Cut order:** news search → leaderboard → Blinks → gasless (pre-fund wallets) → public vote (keep challenge → Void refund). **Never cut:** paste → draft → create · faucet · stake · odds · AI resolve with sources · finalize · claim.
 
 ---
 
@@ -922,9 +924,9 @@ NEXT_PUBLIC_BURNER=0           # 1 = auto-connect a burner wallet (tests, backup
 ## Judge Q&A (prep answers)
 
 - **"Isn't this gambling?"** Test tokens on devnet, no cash value, stakes capped at 100 per person so nobody can buy the odds. The product is the public record; stakes make the odds honest.
-- **"What if the AI is wrong?"** It must cite sources it actually read (we drop any it didn't). Below 0.7 confidence it doesn't decide. Anyone who predicted can challenge with a bond; the council decides 2 of 3.
+- **"What if the AI is wrong?"** It must cite sources it actually read (we drop any it didn't). Below 0.7 confidence it doesn't decide. Anyone who predicted can challenge with a bond, then **anyone** can vote by locking tUSDC; the side with the most locked tUSDC wins and takes the losers' locks, so voting honestly is the profitable move.
 - **"Why blockchain?"** Only the program can move the vault; there is no admin withdraw. Promises, results and votes can't be edited or deleted by anyone, including us. Fees are tiny, so we pay them.
-- **"Who's the council?"** Today, three team wallets. In production, a rotating public panel, every vote on-chain.
+- **"Can't someone just make lots of wallets?"** Votes are weighted by locked tUSDC, not wallets, so splitting adds nothing; and losing voters forfeit their lock. On mainnet, faucet-free tokens make buying votes expensive.
 - **"Prompt injection from web pages?"** Evidence is tagged as data, the resolver judges only fixed criteria, citations are checked in code, and humans can challenge.
 - **"Privacy and harm?"** Public figures and organizations only; the drafter rejects private people and anything about death or harm before a market exists.
 - **"What did you build today?"** Open Explorer: the program, a market account, its vault, the resolver-signed proposal, the claim.
@@ -936,7 +938,7 @@ NEXT_PUBLIC_BURNER=0           # 1 = auto-connect a burner wallet (tests, backup
 1. **Tech for Good fit:** accountability for public promises, with harm and privacy guardrails built in
 2. **Real Solana use:** program-owned vaults, no admin withdraw, gasless for users, every step on Explorer
 3. **Visible AI reasoning:** judges watch the AI draft, research, cite and decide, or step aside below 0.7
-4. **Humans stay in charge:** challenge bonds and a council over the AI
+4. **The public stays in charge:** challenge bonds and an open, money-backed vote over the AI
 5. **Story arc:** a messy post becomes a checkable question, people bet on trust, and the record is permanent
 
 ---

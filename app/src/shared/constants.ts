@@ -12,11 +12,18 @@ export const TUSDC_DECIMALS = 6;
 export const TUSDC_BASE = 10 ** TUSDC_DECIMALS; // 1 tUSDC in base units
 
 // UI units (tUSDC). The program enforces the same limits in base units.
+// Vote locks use the same 1-100 range as stakes.
 export const MIN_STAKE = 1;
 export const MAX_STAKE = 100;
+export const MIN_VOTE = MIN_STAKE;
+export const MAX_VOTE = MAX_STAKE;
 export const BOND = 10;
 
-// On-chain u8 encoding for side, verdict and outcome.
+// Demo values P2 passes to initialize_config (seconds). Production: 86_400 each.
+export const CHALLENGE_WINDOW = 30;
+export const VOTE_WINDOW = 30;
+
+// On-chain u8 encoding for side, verdict, vote choice and outcome.
 export const SIDE = { none: 0, kept: 1, broken: 2, void: 3 } as const;
 
 export const SEEDS = {
@@ -24,6 +31,7 @@ export const SEEDS = {
   market: "market", // ["market", config, id as u64 little-endian]
   vault: "vault", // ["vault", market]
   position: "position", // ["position", market, user]
+  vote: "vote", // ["vote", market, voter]: one vote per wallet per market
 } as const;
 
 // Byte limits from the program. They keep create_market under Solana's

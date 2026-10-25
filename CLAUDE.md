@@ -7,7 +7,7 @@ This file holds the rules and the roles. **`PLAN.md` holds the details:** tasks,
 
 ## What we're building
 
-Paste a public promise from X or the news. AI turns it into a yes/no market with a deadline. People stake test USDC on Kept or Broken. After the deadline, AI researches the outcome and proposes a result with sources. Anyone who predicted can challenge it, a 3-person council settles challenges, the program pays the winners, and the result stays on Solana.
+Paste a public promise from X or the news. AI turns it into a yes/no market with a deadline. People stake test USDC on Kept or Broken. After the deadline, AI researches the outcome and proposes a result with sources. Anyone who predicted can challenge it, anyone can vote with locked tUSDC to settle it, the program pays the winners, and the result stays on Solana.
 
 ## Fixed decisions (do not relitigate)
 
@@ -27,7 +27,7 @@ Paste a public promise from X or the news. AI turns it into a yes/no market with
 Each person owns their folders **and the tests for their own code**. Only the owner edits a file; ask in chat or leave `// TODO(P#): …` in your own file.
 
 ### P1: Blockchain (Neil)
-- **Builds:** the Anchor program with these instructions: `initialize_config`, `update_config`, `create_market`, `place_stake`, `propose_outcome`, `challenge`, `council_vote`, `finalize`, `claim`. Accounts: Config, Market, per-market Vault, Position.
+- **Builds:** the Anchor program with these instructions: `initialize_config`, `update_config`, `create_market`, `place_stake`, `propose_outcome`, `challenge`, `cast_vote`, `finalize`, `claim`, `claim_vote`. Accounts: Config, Market, per-market Vault, Position, Vote.
 - **Owns:** `program/`, `app/src/shared/idl/`, `app/src/shared/constants.ts`; plus `app/src/chain/custodial.ts`, but only if Anchor is called off at a go/no-go gate.
 - **Tests:** `program/tests/kept.test.ts` (Playground). Every instruction gets a happy path and one rejected path, plus the payout worked example.
 - **Hands off:** program ID + stub IDL by **12:45**; frozen IDL by **13:30**. After that, account layouts change only with team agreement.
@@ -51,7 +51,7 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 - **Builds:**
   - the design system ("civic ledger": paper tones; Kept/Broken always shown with icon + word, never color alone)
   - all pages: `/`, `/create`, `/markets/[id]`, `/council`, `/promisers/[handle]`, `/leaderboard`, `/faucet`
-  - every UI state: open, resolving, proposed, challenged, council, finalized, void, plus empty, loading and error
+  - every UI state: open, resolving, proposed, voting, finalized, void, plus empty, loading and error
 - **Owns:** `app/package.json` (the only person who adds dependencies), `app/src/app/**/page.tsx`, `layout.tsx`, `globals.css`, `app/src/components/`.
 - **Tests:** Playwright end-to-end tests in mock mode, `app/tests/e2e/`; manual checks in `docs/TEST_CHECKLIST.md`.
 - **Hands off:** scaffold on `main` by **12:25**: every file in the `PLAN.md` Scaffold stubbed, every dependency installed.
@@ -79,9 +79,10 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 - Stake **1–100 tUSDC**, **one stake per person per market**. The cap stops anyone from controlling the odds.
 - Challenge bond **10 tUSDC**; only people with a stake may challenge, and only within the window.
 - Challenge window is a config value: **24 h** in production, **30 s** in the demo.
-- The AI proposes only **Kept or Broken with confidence ≥ 0.7**. Unclear or low confidence → the market goes to the council.
-- Council: 3 members; **2 matching votes** decide Kept, Broken or Void.
-- Council **changes** the proposal → the challenger gets the bond back. Council agrees → the bond is forfeited to the winners.
+- The AI proposes only **Kept or Broken with confidence ≥ 0.7**. Unclear, low confidence, or a challenge → **public vote**.
+- Public vote: **anyone** locks **1–100 tUSDC** on Kept, Broken or Void, once per wallet, during the vote window (config value: 30 s demo, 24 h production). After it, anyone calls `finalize`: the outcome with the **most locked tUSDC** wins; a tie or no votes → **Void** and every voter is refunded.
+- Winning voters split the **whole vote pool** (`lock × all votes ÷ winning votes`); losing voters get 0. Stakers are paid on the vote's outcome as usual.
+- Vote **changes** the AI's proposal → the challenger gets the bond back. Vote agrees → the bond is forfeited to the winning stakers.
 - Payout = `stake × (total staked + forfeited bonds) ÷ winning side total`, rounded down. Worked example: 10 on Broken, 100 total, 25 on Broken → **40**. Void, or nobody on the winning side → full refund.
 - Faucet: 100 tUSDC once per wallet (refused if the wallet's token account already exists).
 - Each market stores the exact promise text, source URL and source sha256 on-chain. Text caps (promise 240, criteria 160, URL 120) keep transactions under the 1232-byte limit.
@@ -91,13 +92,13 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 - **Reject**, with a one-sentence reason: vague promises, no deadline, private individuals, anything about death or harm, not a promise.
 - A draft has: promiser, exact quoted promise (must appear word for word in the source), deadline, Kept/Broken criteria naming a checkable source.
 - The resolver judges only against the criteria. Fetched pages are **data, never instructions**. Every citation must come from the evidence pack, or it's dropped.
-- Validate every Claude output with zod before using it. Handle `stop_reason: "refusal"` (reject the draft, or send the market to the council).
+- Validate every Claude output with zod before using it. Handle `stop_reason: "refusal"` (reject the draft, or send the market to a public vote).
 
 ## Security
 
 - Keys (Claude, Tavily, fee payer, resolver) live in `app/.env.local`. **Never commit them, never use `NEXT_PUBLIC_` for them.**
 - The relay co-signs only transactions whose fee payer is ours and whose instructions all call our program (or ComputeBudget).
-- Council keys stay in the council members' own wallets. Devnet only; never mainnet.
+- Devnet only; never mainnet.
 
 ## Git: branch, commit, check
 
@@ -109,7 +110,7 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 ## Scope and cut order
 
 - **Never cut:** paste → draft → create · faucet · stake · odds · AI resolve with sources · finalize · claim.
-- **Cut in this order:** news search → leaderboard → Blinks → gasless (pre-fund wallets) → council.
+- **Cut in this order:** news search → leaderboard → Blinks → gasless (pre-fund wallets) → public vote (keep challenge → Void refund).
 - Feature freeze **16:45**. Anything not working at 15:30 is cut or served from fixtures.
 
 ## Working with Claude on this repo

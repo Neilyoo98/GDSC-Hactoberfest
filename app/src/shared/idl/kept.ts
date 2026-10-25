@@ -16,9 +16,161 @@ export type Kept = {
   },
   "instructions": [
     {
+      "name": "castVote",
+      "docs": [
+        "Anyone can vote once per market by locking 1-100 tUSDC on Kept, Broken or Void.",
+        "The outcome with the most locked tUSDC wins; its voters split the whole vote pool."
+      ],
+      "discriminator": [
+        20,
+        212,
+        15,
+        189,
+        69,
+        180,
+        69,
+        151
+      ],
+      "accounts": [
+        {
+          "name": "voter",
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config.admin",
+                "account": "config"
+              }
+            ]
+          },
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "path": "market.id",
+                "account": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "account",
+                "path": "voter"
+              }
+            ]
+          }
+        },
+        {
+          "name": "voterToken",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "choice",
+          "type": "u8"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "challenge",
       "docs": [
-        "Anyone with a stake can put up the bond while the window is open."
+        "Anyone with a stake can put up the bond while the window is open.",
+        "A challenge opens a public vote."
       ],
       "discriminator": [
         16,
@@ -153,8 +305,8 @@ export type Kept = {
     {
       "name": "claim",
       "docs": [
-        "Winners get their share of the pool; Void refunds stakes;",
-        "the challenger also gets the bond back if the council changed the result."
+        "Stakers: winners get their share of the pool; Void refunds stakes;",
+        "the challenger also gets the bond back if the vote overturned the AI."
       ],
       "discriminator": [
         62,
@@ -287,24 +439,24 @@ export type Kept = {
       "args": []
     },
     {
-      "name": "councilVote",
+      "name": "claimVote",
       "docs": [
-        "2 matching votes out of 3 decide Kept, Broken or Void.",
-        "Three different votes also end as Void, so a market can never get stuck."
+        "Voters: the winning outcome's voters split the whole vote pool; losers get 0;",
+        "a tie or empty vote refunds every voter."
       ],
       "discriminator": [
-        236,
-        50,
-        66,
-        229,
-        240,
-        120,
-        90,
-        147
+        142,
+        82,
+        211,
+        173,
+        147,
+        246,
+        121,
+        89
       ],
       "accounts": [
         {
-          "name": "member",
+          "name": "voter",
           "signer": true
         },
         {
@@ -335,7 +487,6 @@ export type Kept = {
         },
         {
           "name": "market",
-          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -360,14 +511,64 @@ export type Kept = {
               }
             ]
           }
+        },
+        {
+          "name": "vote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "account",
+                "path": "voter"
+              }
+            ]
+          }
+        },
+        {
+          "name": "voterToken",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
-      "args": [
-        {
-          "name": "outcome",
-          "type": "u8"
-        }
-      ]
+      "args": []
     },
     {
       "name": "createMarket",
@@ -512,7 +713,9 @@ export type Kept = {
     {
       "name": "finalize",
       "docs": [
-        "Anyone can finalize an unchallenged proposal once the window has passed."
+        "Anyone can finalize:",
+        "- an unchallenged proposal once the challenge window has passed, or",
+        "- a vote once the vote window has passed (most locked tUSDC wins; tie or no votes → Void)."
       ],
       "discriminator": [
         171,
@@ -637,16 +840,11 @@ export type Kept = {
           "type": "pubkey"
         },
         {
-          "name": "council",
-          "type": {
-            "array": [
-              "pubkey",
-              3
-            ]
-          }
+          "name": "challengeWindow",
+          "type": "i64"
         },
         {
-          "name": "challengeWindow",
+          "name": "voteWindow",
           "type": "i64"
         },
         {
@@ -813,7 +1011,7 @@ export type Kept = {
       "name": "proposeOutcome",
       "docs": [
         "Called by the AI resolver key after the deadline.",
-        "Kept/Broken at >= 0.70 starts the challenge window; anything else goes to the council."
+        "Kept/Broken at >= 0.70 starts the challenge window; anything else opens a public vote."
       ],
       "discriminator": [
         147,
@@ -918,7 +1116,7 @@ export type Kept = {
     {
       "name": "updateConfig",
       "docs": [
-        "Switch the demo window (30 s) and production window (24 h), or rotate keys.",
+        "Switch the demo windows (30 s) and production windows (24 h), or rotate the resolver.",
         "There is deliberately no instruction that moves funds for the admin."
       ],
       "discriminator": [
@@ -969,16 +1167,11 @@ export type Kept = {
           "type": "pubkey"
         },
         {
-          "name": "council",
-          "type": {
-            "array": [
-              "pubkey",
-              3
-            ]
-          }
+          "name": "challengeWindow",
+          "type": "i64"
         },
         {
-          "name": "challengeWindow",
+          "name": "voteWindow",
           "type": "i64"
         }
       ]
@@ -1023,6 +1216,19 @@ export type Kept = {
         247,
         208
       ]
+    },
+    {
+      "name": "vote",
+      "discriminator": [
+        96,
+        91,
+        104,
+        57,
+        145,
+        35,
+        172,
+        155
+      ]
     }
   ],
   "errors": [
@@ -1049,7 +1255,7 @@ export type Kept = {
     {
       "code": 6004,
       "name": "stakeOutOfRange",
-      "msg": "Stake must be between 1 and 100 tUSDC"
+      "msg": "Amount must be between 1 and 100 tUSDC"
     },
     {
       "code": 6005,
@@ -1068,18 +1274,18 @@ export type Kept = {
     },
     {
       "code": 6008,
-      "name": "notCouncil",
-      "msg": "Only council members can vote"
+      "name": "notVoting",
+      "msg": "Market is not in a public vote"
     },
     {
       "code": 6009,
-      "name": "alreadyVoted",
-      "msg": "This council seat has already voted"
+      "name": "voteClosed",
+      "msg": "Voting has closed"
     },
     {
       "code": 6010,
-      "name": "notInReview",
-      "msg": "Market is not waiting for a council decision"
+      "name": "voteOpen",
+      "msg": "Voting is still open"
     },
     {
       "code": 6011,
@@ -1088,36 +1294,41 @@ export type Kept = {
     },
     {
       "code": 6012,
+      "name": "notFinalizable",
+      "msg": "Nothing to finalize yet"
+    },
+    {
+      "code": 6013,
       "name": "windowOpen",
       "msg": "Challenge window is still open"
     },
     {
-      "code": 6013,
+      "code": 6014,
       "name": "windowClosed",
       "msg": "Challenge window has closed"
     },
     {
-      "code": 6014,
+      "code": 6015,
       "name": "badWindow",
-      "msg": "Challenge window must be positive"
+      "msg": "Windows must be positive"
     },
     {
-      "code": 6015,
+      "code": 6016,
       "name": "notFinal",
       "msg": "Market is not settled yet"
     },
     {
-      "code": 6016,
+      "code": 6017,
       "name": "alreadyClaimed",
       "msg": "Already claimed"
     },
     {
-      "code": 6017,
+      "code": 6018,
       "name": "textTooLong",
       "msg": "Text is empty or too long"
     },
     {
-      "code": 6018,
+      "code": 6019,
       "name": "overflow",
       "msg": "Arithmetic overflow"
     }
@@ -1137,20 +1348,15 @@ export type Kept = {
             "type": "pubkey"
           },
           {
-            "name": "council",
-            "type": {
-              "array": [
-                "pubkey",
-                3
-              ]
-            }
-          },
-          {
             "name": "mint",
             "type": "pubkey"
           },
           {
             "name": "challengeWindow",
+            "type": "i64"
+          },
+          {
+            "name": "voteWindow",
             "type": "i64"
           },
           {
@@ -1270,13 +1476,24 @@ export type Kept = {
             "type": "u64"
           },
           {
-            "name": "votes",
-            "type": {
-              "array": [
-                "u8",
-                3
-              ]
-            }
+            "name": "voteEndsAt",
+            "type": "i64"
+          },
+          {
+            "name": "voteKept",
+            "type": "u64"
+          },
+          {
+            "name": "voteBroken",
+            "type": "u64"
+          },
+          {
+            "name": "voteVoid",
+            "type": "u64"
+          },
+          {
+            "name": "voteRefund",
+            "type": "bool"
           },
           {
             "name": "finalOutcome",
@@ -1345,16 +1562,45 @@ export type Kept = {
             "name": "proposed"
           },
           {
-            "name": "challenged"
-          },
-          {
-            "name": "council"
+            "name": "voting"
           },
           {
             "name": "finalized"
           },
           {
             "name": "void"
+          }
+        ]
+      }
+    },
+    {
+      "name": "vote",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "voter",
+            "type": "pubkey"
+          },
+          {
+            "name": "choice",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
           }
         ]
       }

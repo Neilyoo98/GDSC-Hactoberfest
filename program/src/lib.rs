@@ -1,6 +1,6 @@
 // OWNER: P1 (Blockchain). Ask before editing.
 // Kept: public promise markets on Solana devnet.
-// Built and deployed in Solana Playground; see program/README.md.
+// Built with program/build.sh and deployed to devnet; see program/README.md.
 #![allow(unexpected_cfgs)]
 
 use anchor_lang::prelude::*;
@@ -9,15 +9,15 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 // Program keypair: ~/.config/kept/kept-keypair.json in WSL (see program/build.sh).
 declare_id!("GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap");
 
-pub const MIN_STAKE: u64 = 1_000_000; // 1 tUSDC (6 decimals)
-pub const MAX_STAKE: u64 = 100_000_000; // 100 tUSDC
+pub const MIN_STAKE: u64 = 1_000_000; // 1 tUSDC (6 decimals); also the minimum vote lock
+pub const MAX_STAKE: u64 = 100_000_000; // 100 tUSDC; also the maximum vote lock
 pub const GATE_BPS: u16 = 7_000; // AI proposes only at confidence >= 0.70
 
 // Sides, verdicts and outcomes share one encoding.
 pub const NONE: u8 = 0;
 pub const KEPT: u8 = 1;
 pub const BROKEN: u8 = 2;
-pub const VOID: u8 = 3; // "unclear" when it comes from the AI, "void" from the council
+pub const VOID: u8 = 3; // "unclear" when it comes from the AI, "void" as a final outcome
 
 pub const MAX_PROMISER: usize = 40;
 pub const MAX_PROMISE_TEXT: usize = 240;
@@ -34,36 +34,36 @@ pub mod kept {
     pub fn initialize_config(
         ctx: Context<InitializeConfig>,
         resolver: Pubkey,
-        council: [Pubkey; 3],
         challenge_window: i64,
+        vote_window: i64,
         bond: u64,
     ) -> Result<()> {
-        require!(challenge_window > 0, KeptError::BadWindow);
+        require!(challenge_window > 0 && vote_window > 0, KeptError::BadWindow);
         let c = &mut ctx.accounts.config;
         c.admin = ctx.accounts.admin.key();
         c.resolver = resolver;
-        c.council = council;
         c.mint = ctx.accounts.mint.key();
         c.challenge_window = challenge_window;
+        c.vote_window = vote_window;
         c.bond = bond;
         c.market_count = 0;
         c.bump = ctx.bumps.config;
         Ok(())
     }
 
-    /// Switch the demo window (30 s) and production window (24 h), or rotate keys.
+    /// Switch the demo windows (30 s) and production windows (24 h), or rotate the resolver.
     /// There is deliberately no instruction that moves funds for the admin.
     pub fn update_config(
         ctx: Context<UpdateConfig>,
         resolver: Pubkey,
-        council: [Pubkey; 3],
         challenge_window: i64,
+        vote_window: i64,
     ) -> Result<()> {
-        require!(challenge_window > 0, KeptError::BadWindow);
+        require!(challenge_window > 0 && vote_window > 0, KeptError::BadWindow);
         let c = &mut ctx.accounts.config;
         c.resolver = resolver;
-        c.council = council;
         c.challenge_window = challenge_window;
+        c.vote_window = vote_window;
         Ok(())
     }
 
@@ -110,15 +110,11 @@ pub mod kept {
         require!((MIN_STAKE..=MAX_STAKE).contains(&amount), KeptError::StakeOutOfRange);
         require!(side == KEPT || side == BROKEN, KeptError::BadSide);
 
-        token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.user_token.to_account_info(),
-                    to: ctx.accounts.vault.to_account_info(),
-                    authority: ctx.accounts.user.to_account_info(),
-                },
-            ),
+        transfer_in(
+            &ctx.accounts.token_program,
+            &ctx.accounts.user_token,
+            &ctx.accounts.vault,
+            &ctx.accounts.user,
             amount,
         )?;
 
@@ -139,7 +135,7 @@ pub mod kept {
     }
 
     /// Called by the AI resolver key after the deadline.
-    /// Kept/Broken at >= 0.70 starts the challenge window; anything else goes to the council.
+    /// Kept/Broken at >= 0.70 starts the challenge window; anything else opens a public vote.
     pub fn propose_outcome(
         ctx: Context<ProposeOutcome>,
         verdict: u8,
@@ -149,6 +145,7 @@ pub mod kept {
         evidence_hash: [u8; 32],
     ) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
+        let vote_window = ctx.accounts.config.vote_window;
         let m = &mut ctx.accounts.market;
         require!(m.status == Status::Open, KeptError::NotOpen);
         require!(now >= m.deadline, KeptError::BeforeDeadline);
@@ -164,95 +161,112 @@ pub mod kept {
         m.sources = sources;
         m.evidence_hash = evidence_hash;
         m.proposed_at = now;
-        m.status = if verdict != VOID && confidence_bps >= GATE_BPS {
-            Status::Proposed
+        if verdict != VOID && confidence_bps >= GATE_BPS {
+            m.status = Status::Proposed;
         } else {
-            Status::Council
-        };
+            m.status = Status::Voting;
+            m.vote_ends_at = now.checked_add(vote_window).ok_or(KeptError::Overflow)?;
+        }
         Ok(())
     }
 
     /// Anyone with a stake can put up the bond while the window is open.
+    /// A challenge opens a public vote.
     pub fn challenge(ctx: Context<Challenge>) -> Result<()> {
         let window = ctx.accounts.config.challenge_window;
+        let vote_window = ctx.accounts.config.vote_window;
         let bond = ctx.accounts.config.bond;
+        let now = Clock::get()?.unix_timestamp;
         let m = &mut ctx.accounts.market;
         require!(m.status == Status::Proposed, KeptError::NotProposed);
-        let now = Clock::get()?.unix_timestamp;
         require!(now < m.proposed_at.checked_add(window).ok_or(KeptError::Overflow)?, KeptError::WindowClosed);
 
-        token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.user_token.to_account_info(),
-                    to: ctx.accounts.vault.to_account_info(),
-                    authority: ctx.accounts.user.to_account_info(),
-                },
-            ),
+        transfer_in(
+            &ctx.accounts.token_program,
+            &ctx.accounts.user_token,
+            &ctx.accounts.vault,
+            &ctx.accounts.user,
             bond,
         )?;
 
         m.challenger = ctx.accounts.user.key();
         m.challenge_bond = bond;
-        m.status = Status::Challenged;
+        m.status = Status::Voting;
+        m.vote_ends_at = now.checked_add(vote_window).ok_or(KeptError::Overflow)?;
         Ok(())
     }
 
-    /// 2 matching votes out of 3 decide Kept, Broken or Void.
-    /// Three different votes also end as Void, so a market can never get stuck.
-    pub fn council_vote(ctx: Context<CouncilVote>, outcome: u8) -> Result<()> {
-        require!(outcome == KEPT || outcome == BROKEN || outcome == VOID, KeptError::BadSide);
-        let seat = ctx
-            .accounts
-            .config
-            .council
-            .iter()
-            .position(|k| *k == ctx.accounts.member.key())
-            .ok_or(KeptError::NotCouncil)?;
-
+    /// Anyone can vote once per market by locking 1-100 tUSDC on Kept, Broken or Void.
+    /// The outcome with the most locked tUSDC wins; its voters split the whole vote pool.
+    pub fn cast_vote(ctx: Context<CastVote>, choice: u8, amount: u64) -> Result<()> {
+        require!(choice == KEPT || choice == BROKEN || choice == VOID, KeptError::BadSide);
+        require!((MIN_STAKE..=MAX_STAKE).contains(&amount), KeptError::StakeOutOfRange);
         let m = &mut ctx.accounts.market;
-        require!(m.status == Status::Challenged || m.status == Status::Council, KeptError::NotInReview);
-        require!(m.votes[seat] == NONE, KeptError::AlreadyVoted);
-        m.votes[seat] = outcome;
+        require!(m.status == Status::Voting, KeptError::NotVoting);
+        require!(Clock::get()?.unix_timestamp < m.vote_ends_at, KeptError::VoteClosed);
 
-        let count = |o: u8| m.votes.iter().filter(|v| **v == o).count();
-        let decided = if count(outcome) >= 2 {
-            Some(outcome)
-        } else if m.votes.iter().all(|v| *v != NONE) {
-            Some(VOID)
-        } else {
-            None
+        transfer_in(
+            &ctx.accounts.token_program,
+            &ctx.accounts.voter_token,
+            &ctx.accounts.vault,
+            &ctx.accounts.voter,
+            amount,
+        )?;
+
+        let tally = match choice {
+            KEPT => &mut m.vote_kept,
+            BROKEN => &mut m.vote_broken,
+            _ => &mut m.vote_void,
         };
+        *tally = tally.checked_add(amount).ok_or(KeptError::Overflow)?;
 
-        if let Some(result) = decided {
-            if m.status == Status::Challenged {
-                if result != m.proposed {
-                    m.bond_refund_due = true;
-                } else {
-                    m.forfeited_bonds = m.forfeited_bonds.checked_add(m.challenge_bond).ok_or(KeptError::Overflow)?;
-                }
+        let v = &mut ctx.accounts.vote;
+        v.market = m.key();
+        v.voter = ctx.accounts.voter.key();
+        v.choice = choice;
+        v.amount = amount;
+        v.claimed = false;
+        v.bump = ctx.bumps.vote;
+        Ok(())
+    }
+
+    /// Anyone can finalize:
+    /// - an unchallenged proposal once the challenge window has passed, or
+    /// - a vote once the vote window has passed (most locked tUSDC wins; tie or no votes → Void).
+    pub fn finalize(ctx: Context<Finalize>) -> Result<()> {
+        let window = ctx.accounts.config.challenge_window;
+        let now = Clock::get()?.unix_timestamp;
+        let m = &mut ctx.accounts.market;
+        match m.status {
+            Status::Proposed => {
+                require!(now >= m.proposed_at.checked_add(window).ok_or(KeptError::Overflow)?, KeptError::WindowOpen);
+                m.final_outcome = m.proposed;
+                m.status = Status::Finalized;
             }
-            m.final_outcome = result;
-            m.status = if result == VOID { Status::Void } else { Status::Finalized };
+            Status::Voting => {
+                require!(now >= m.vote_ends_at, KeptError::VoteOpen);
+                let result = vote_result(m);
+                if result == NONE {
+                    m.vote_refund = true; // tie or no votes: every voter gets their lock back
+                }
+                let outcome = if result == NONE { VOID } else { result };
+                if m.challenger != Pubkey::default() {
+                    if outcome != m.proposed {
+                        m.bond_refund_due = true;
+                    } else {
+                        m.forfeited_bonds = m.forfeited_bonds.checked_add(m.challenge_bond).ok_or(KeptError::Overflow)?;
+                    }
+                }
+                m.final_outcome = outcome;
+                m.status = if outcome == VOID { Status::Void } else { Status::Finalized };
+            }
+            _ => return err!(KeptError::NotFinalizable),
         }
         Ok(())
     }
 
-    /// Anyone can finalize an unchallenged proposal once the window has passed.
-    pub fn finalize(ctx: Context<Finalize>) -> Result<()> {
-        let window = ctx.accounts.config.challenge_window;
-        let m = &mut ctx.accounts.market;
-        require!(m.status == Status::Proposed, KeptError::NotProposed);
-        let now = Clock::get()?.unix_timestamp;
-        require!(now >= m.proposed_at.checked_add(window).ok_or(KeptError::Overflow)?, KeptError::WindowOpen);
-        m.final_outcome = m.proposed;
-        m.status = Status::Finalized;
-        Ok(())
-    }
-
-    /// Winners get their share of the pool; Void refunds stakes;
-    /// the challenger also gets the bond back if the council changed the result.
+    /// Stakers: winners get their share of the pool; Void refunds stakes;
+    /// the challenger also gets the bond back if the vote overturned the AI.
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         let m = &ctx.accounts.market;
         require!(m.status == Status::Finalized || m.status == Status::Void, KeptError::NotFinal);
@@ -264,25 +278,69 @@ pub mod kept {
             amount = amount.checked_add(m.challenge_bond).ok_or(KeptError::Overflow)?;
         }
         p.claimed = true;
+        transfer_out(&ctx.accounts.token_program, &ctx.accounts.vault, &ctx.accounts.user_token, &ctx.accounts.market, amount)
+    }
 
-        if amount > 0 {
-            let config_key = m.config;
-            let id_bytes = m.id.to_le_bytes();
-            let seeds: &[&[u8]] = &[b"market", config_key.as_ref(), id_bytes.as_ref(), &[m.bump]];
-            token::transfer(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    Transfer {
-                        from: ctx.accounts.vault.to_account_info(),
-                        to: ctx.accounts.user_token.to_account_info(),
-                        authority: ctx.accounts.market.to_account_info(),
-                    },
-                    &[seeds],
-                ),
-                amount,
-            )?;
-        }
-        Ok(())
+    /// Voters: the winning outcome's voters split the whole vote pool; losers get 0;
+    /// a tie or empty vote refunds every voter.
+    pub fn claim_vote(ctx: Context<ClaimVote>) -> Result<()> {
+        let m = &ctx.accounts.market;
+        require!(m.status == Status::Finalized || m.status == Status::Void, KeptError::NotFinal);
+        let v = &mut ctx.accounts.vote;
+        require!(!v.claimed, KeptError::AlreadyClaimed);
+        let amount = vote_payout(m, v)?;
+        v.claimed = true;
+        transfer_out(&ctx.accounts.token_program, &ctx.accounts.vault, &ctx.accounts.voter_token, &ctx.accounts.market, amount)
+    }
+}
+
+fn transfer_in<'info>(
+    token_program: &Program<'info, Token>,
+    from: &Account<'info, TokenAccount>,
+    vault: &Account<'info, TokenAccount>,
+    authority: &Signer<'info>,
+    amount: u64,
+) -> Result<()> {
+    token::transfer(
+        CpiContext::new(
+            token_program.to_account_info(),
+            Transfer { from: from.to_account_info(), to: vault.to_account_info(), authority: authority.to_account_info() },
+        ),
+        amount,
+    )
+}
+
+fn transfer_out<'info>(
+    token_program: &Program<'info, Token>,
+    vault: &Account<'info, TokenAccount>,
+    to: &Account<'info, TokenAccount>,
+    market: &Account<'info, Market>,
+    amount: u64,
+) -> Result<()> {
+    if amount == 0 {
+        return Ok(());
+    }
+    let id_bytes = market.id.to_le_bytes();
+    let seeds: &[&[u8]] = &[b"market", market.config.as_ref(), id_bytes.as_ref(), &[market.bump]];
+    token::transfer(
+        CpiContext::new_with_signer(
+            token_program.to_account_info(),
+            Transfer { from: vault.to_account_info(), to: to.to_account_info(), authority: market.to_account_info() },
+            &[seeds],
+        ),
+        amount,
+    )
+}
+
+/// The outcome with the most locked tUSDC, or NONE on a tie or when nobody voted.
+pub fn vote_result(m: &Market) -> u8 {
+    let tallies = [(KEPT, m.vote_kept), (BROKEN, m.vote_broken), (VOID, m.vote_void)];
+    let max = tallies.iter().map(|t| t.1).max().unwrap_or(0);
+    let leaders: Vec<u8> = tallies.iter().filter(|t| t.1 == max).map(|t| t.0).collect();
+    if max == 0 || leaders.len() > 1 {
+        NONE
+    } else {
+        leaders[0]
     }
 }
 
@@ -304,11 +362,33 @@ pub fn payout(m: &Market, p: &Position) -> Result<u64> {
         .checked_add(m.total_broken as u128)
         .and_then(|v| v.checked_add(m.forfeited_bonds as u128))
         .ok_or(KeptError::Overflow)?;
-    let share = (p.amount as u128)
-        .checked_mul(pool)
-        .ok_or(KeptError::Overflow)?
-        / winners as u128;
-    u64::try_from(share).map_err(|_| error!(KeptError::Overflow))
+    share(p.amount, pool, winners)
+}
+
+/// lock × (all votes) ÷ votes on the final outcome, rounded down.
+/// A tie or empty vote refunds the lock.
+pub fn vote_payout(m: &Market, v: &Vote) -> Result<u64> {
+    if m.vote_refund {
+        return Ok(v.amount);
+    }
+    if v.choice != m.final_outcome {
+        return Ok(0);
+    }
+    let winners = match m.final_outcome {
+        KEPT => m.vote_kept,
+        BROKEN => m.vote_broken,
+        _ => m.vote_void,
+    };
+    let pool = (m.vote_kept as u128)
+        .checked_add(m.vote_broken as u128)
+        .and_then(|x| x.checked_add(m.vote_void as u128))
+        .ok_or(KeptError::Overflow)?;
+    share(v.amount, pool, winners)
+}
+
+fn share(amount: u64, pool: u128, winners: u64) -> Result<u64> {
+    let out = (amount as u128).checked_mul(pool).ok_or(KeptError::Overflow)? / winners as u128;
+    u64::try_from(out).map_err(|_| error!(KeptError::Overflow))
 }
 
 // ---------------------------------------------------------------- accounts
@@ -317,8 +397,7 @@ pub fn payout(m: &Market, p: &Position) -> Result<u64> {
 pub enum Status {
     Open,
     Proposed,
-    Challenged,
-    Council,
+    Voting, // challenged, or the AI was unsure: public tUSDC-weighted vote
     Finalized,
     Void,
 }
@@ -328,9 +407,9 @@ pub enum Status {
 pub struct Config {
     pub admin: Pubkey,
     pub resolver: Pubkey,
-    pub council: [Pubkey; 3],
     pub mint: Pubkey,
     pub challenge_window: i64, // seconds
+    pub vote_window: i64,      // seconds
     pub bond: u64,             // base units
     pub market_count: u64,
     pub bump: u8,
@@ -365,7 +444,11 @@ pub struct Market {
     pub proposed_at: i64,
     pub challenger: Pubkey, // Pubkey::default() = none
     pub challenge_bond: u64,
-    pub votes: [u8; 3],
+    pub vote_ends_at: i64,
+    pub vote_kept: u64,
+    pub vote_broken: u64,
+    pub vote_void: u64,
+    pub vote_refund: bool,
     pub final_outcome: u8,
     pub forfeited_bonds: u64,
     pub bond_refund_due: bool,
@@ -379,6 +462,17 @@ pub struct Position {
     pub market: Pubkey,
     pub owner: Pubkey,
     pub side: u8,
+    pub amount: u64,
+    pub claimed: bool,
+    pub bump: u8,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Vote {
+    pub market: Pubkey,
+    pub voter: Pubkey,
+    pub choice: u8,
     pub amount: u64,
     pub claimed: bool,
     pub bump: u8,
@@ -474,13 +568,25 @@ pub struct Challenge<'info> {
 }
 
 #[derive(Accounts)]
-pub struct CouncilVote<'info> {
-    pub member: Signer<'info>,
+pub struct CastVote<'info> {
+    pub voter: Signer<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
     #[account(seeds = [b"config", config.admin.as_ref()], bump = config.bump)]
     pub config: Account<'info, Config>,
     #[account(mut, has_one = config,
               seeds = [b"market", config.key().as_ref(), market.id.to_le_bytes().as_ref()], bump = market.bump)]
     pub market: Account<'info, Market>,
+    // One vote per wallet per market.
+    #[account(init, payer = payer, space = 8 + Vote::INIT_SPACE,
+              seeds = [b"vote", market.key().as_ref(), voter.key().as_ref()], bump)]
+    pub vote: Account<'info, Vote>,
+    #[account(mut, token::mint = config.mint, token::authority = voter)]
+    pub voter_token: Account<'info, TokenAccount>,
+    #[account(mut, seeds = [b"vault", market.key().as_ref()], bump = market.vault_bump)]
+    pub vault: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -509,6 +615,23 @@ pub struct Claim<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct ClaimVote<'info> {
+    pub voter: Signer<'info>,
+    #[account(seeds = [b"config", config.admin.as_ref()], bump = config.bump)]
+    pub config: Account<'info, Config>,
+    #[account(has_one = config,
+              seeds = [b"market", config.key().as_ref(), market.id.to_le_bytes().as_ref()], bump = market.bump)]
+    pub market: Account<'info, Market>,
+    #[account(mut, seeds = [b"vote", market.key().as_ref(), voter.key().as_ref()], bump = vote.bump)]
+    pub vote: Account<'info, Vote>,
+    #[account(mut, token::mint = config.mint, token::authority = voter)]
+    pub voter_token: Account<'info, TokenAccount>,
+    #[account(mut, seeds = [b"vault", market.key().as_ref()], bump = market.vault_bump)]
+    pub vault: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
+
 // ---------------------------------------------------------------- errors
 
 #[error_code]
@@ -521,7 +644,7 @@ pub enum KeptError {
     BeforeDeadline,
     #[msg("Deadline must be in the future")]
     DeadlineInPast,
-    #[msg("Stake must be between 1 and 100 tUSDC")]
+    #[msg("Amount must be between 1 and 100 tUSDC")]
     StakeOutOfRange,
     #[msg("Side or outcome must be Kept (1), Broken (2) or Void/Unclear (3)")]
     BadSide,
@@ -529,19 +652,21 @@ pub enum KeptError {
     BadConfidence,
     #[msg("Only the configured resolver can propose")]
     NotResolver,
-    #[msg("Only council members can vote")]
-    NotCouncil,
-    #[msg("This council seat has already voted")]
-    AlreadyVoted,
-    #[msg("Market is not waiting for a council decision")]
-    NotInReview,
+    #[msg("Market is not in a public vote")]
+    NotVoting,
+    #[msg("Voting has closed")]
+    VoteClosed,
+    #[msg("Voting is still open")]
+    VoteOpen,
     #[msg("Market has no open proposal")]
     NotProposed,
+    #[msg("Nothing to finalize yet")]
+    NotFinalizable,
     #[msg("Challenge window is still open")]
     WindowOpen,
     #[msg("Challenge window has closed")]
     WindowClosed,
-    #[msg("Challenge window must be positive")]
+    #[msg("Windows must be positive")]
     BadWindow,
     #[msg("Market is not settled yet")]
     NotFinal,
@@ -579,7 +704,11 @@ mod tests {
             proposed_at: 0,
             challenger: Pubkey::default(),
             challenge_bond: 0,
-            votes: [0; 3],
+            vote_ends_at: 0,
+            vote_kept: 0,
+            vote_broken: 0,
+            vote_void: 0,
+            vote_refund: false,
             final_outcome,
             forfeited_bonds: 0,
             bond_refund_due: false,
@@ -590,6 +719,10 @@ mod tests {
 
     fn position(side: u8, amount: u64) -> Position {
         Position { market: Pubkey::default(), owner: Pubkey::default(), side, amount, claimed: false, bump: 0 }
+    }
+
+    fn vote(choice: u8, amount: u64) -> Vote {
+        Vote { market: Pubkey::default(), voter: Pubkey::default(), choice, amount, claimed: false, bump: 0 }
     }
 
     const T: u64 = 1_000_000; // 1 tUSDC
@@ -616,6 +749,46 @@ mod tests {
         assert_eq!(payout(&v, &position(KEPT, 30 * T)).unwrap(), 30 * T);
         let empty = market(0, 40 * T, KEPT, Status::Finalized);
         assert_eq!(payout(&empty, &position(BROKEN, 40 * T)).unwrap(), 40 * T);
+    }
+
+    #[test]
+    fn most_locked_tusdc_wins_the_vote() {
+        let mut m = market(0, 0, NONE, Status::Voting);
+        m.vote_kept = 30 * T;
+        m.vote_broken = 50 * T;
+        m.vote_void = 5 * T;
+        assert_eq!(vote_result(&m), BROKEN);
+        m.vote_kept = 50 * T;
+        assert_eq!(vote_result(&m), NONE, "a tie decides nothing");
+        let empty = market(0, 0, NONE, Status::Voting);
+        assert_eq!(vote_result(&empty), NONE, "no votes decides nothing");
+    }
+
+    #[test]
+    fn losing_voters_pay_winning_voters() {
+        // Broken wins 50 vs 30 + 5: Broken voters split all 85
+        let mut m = market(0, 0, BROKEN, Status::Finalized);
+        m.vote_kept = 30 * T;
+        m.vote_broken = 50 * T;
+        m.vote_void = 5 * T;
+        assert_eq!(vote_payout(&m, &vote(BROKEN, 20 * T)).unwrap(), 34 * T); // 20 × 85 ÷ 50
+        assert_eq!(vote_payout(&m, &vote(BROKEN, 30 * T)).unwrap(), 51 * T);
+        assert_eq!(vote_payout(&m, &vote(KEPT, 30 * T)).unwrap(), 0);
+        assert_eq!(vote_payout(&m, &vote(VOID, 5 * T)).unwrap(), 0);
+    }
+
+    #[test]
+    fn void_vote_win_pays_void_voters_and_tie_refunds() {
+        let mut m = market(0, 0, VOID, Status::Void);
+        m.vote_kept = 10 * T;
+        m.vote_void = 30 * T;
+        assert_eq!(vote_payout(&m, &vote(VOID, 30 * T)).unwrap(), 40 * T);
+        assert_eq!(vote_payout(&m, &vote(KEPT, 10 * T)).unwrap(), 0);
+        let mut tie = market(0, 0, VOID, Status::Void);
+        tie.vote_kept = 20 * T;
+        tie.vote_broken = 20 * T;
+        tie.vote_refund = true;
+        assert_eq!(vote_payout(&tie, &vote(KEPT, 20 * T)).unwrap(), 20 * T);
     }
 
     #[test]

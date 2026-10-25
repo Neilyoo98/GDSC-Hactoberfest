@@ -39,6 +39,14 @@ solana program deploy target/deploy/kept.so --program-id target/deploy/kept-keyp
 ```
 `--max-len` set to the exact size keeps rent at about 2.9 SOL. Later upgrades that make the program bigger need `solana program extend`.
 
+**Upgrade** (same program ID, the deploy wallet is the authority):
+```bash
+NEW=$(stat -c %s target/deploy/kept.so)
+solana program extend GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap <extra-bytes>   # only if NEW > current data length
+solana program deploy target/deploy/kept.so --program-id target/deploy/kept-keypair.json --with-compute-unit-price 10000 --max-sign-attempts 100
+```
+An upgrade needs a **temporary buffer the size of the new program** (about 3.1 SOL for 447 KB), refunded when the upgrade finishes. If a deploy fails partway, reclaim the buffer with `solana program close --buffers`.
+
 **Backup:** Solana Playground (`beta.solpg.io`): paste `src/lib.rs`, build, deploy, export the IDL. This uses a different program ID.
 
 ## Tests
@@ -52,9 +60,10 @@ The tests make their **own** Config (seeded by the Playground wallet) and their 
 | Test | Proves |
 |---|---|
 | worked example | 10 on Broken, 25 Broken of 100 → **+40**; 15 → +60; Kept → 0; `BeforeDeadline`, `WindowOpen`, `AlreadyClaimed` |
-| bad stakes | 101 and 0 → `StakeOutOfRange`; side 4 → `BadSide`; second stake fails; non-resolver → `NotResolver` |
-| council void | confidence 0.65 → Council; non-member → `NotCouncil`; double vote → `AlreadyVoted`; 2 × Void → refunds |
-| challenge overturned | non-staker can't challenge; bond moves; 2 council votes overturn; challenger gets 40 + bond back |
+| bad stakes, bad votes | 101 and 0 → `StakeOutOfRange`; side 4 → `BadSide`; second stake fails; vote before a dispute → `NotVoting`; non-resolver → `NotResolver` |
+| unsure AI → public vote | confidence 0.65 → Voting; a non-staker votes; one vote per wallet; `VoteOpen` / `VoteClosed`; 25 Broken vs 10 Kept → Broken; voters get 28 / 7 / 0 of the 35 pool |
+| challenge overturned | non-staker can't challenge; bond moves; vote overturns the AI; challenger gets 40 + bond back |
+| tie → Void | 10 vs 10 → Void; stakers and voters refunded |
 | late challenge | after the window → `WindowClosed` |
 
 ## Accounts and seeds
@@ -65,6 +74,7 @@ The tests make their **own** Config (seeded by the Playground wallet) and their 
 | Market | `["market", config, id (u64 LE)]` |
 | Vault (SPL token account, authority = market) | `["vault", market]` |
 | Position | `["position", market, user]` |
+| Vote | `["vote", market, voter]`: one vote per wallet per market |
 
 Config is seeded by its **admin**, so the app's config (admin = server fee payer, created by P2's `setup-devnet.ts`) and the test config never collide. Clients need the admin pubkey to derive it: `NEXT_PUBLIC_CONFIG_ADMIN`.
 
@@ -72,14 +82,15 @@ Config is seeded by its **admin**, so the app's config (admin = server fee payer
 
 | Instruction | Signers | Notes |
 |---|---|---|
-| `initialize_config(resolver, council[3], window, bond)` | admin | once per admin |
-| `update_config(resolver, council[3], window)` | admin | e.g. 30 s demo ↔ 86400 s |
+| `initialize_config(resolver, challenge_window, vote_window, bond)` | admin | once per admin |
+| `update_config(resolver, challenge_window, vote_window)` | admin | e.g. 30 s demo ↔ 86400 s |
 | `create_market(promiser, text, criteria, url, hash, deadline)` | creator + payer | payer = fee payer (rent) |
 | `place_stake(side, amount)` | user + payer | 1–100 tUSDC, once per user per market |
-| `propose_outcome(verdict, bps, summary, sources, evidence_hash)` | resolver | Kept/Broken ≥ 7000 bps → Proposed, else → Council |
-| `challenge()` | user | must have a Position; bond = config.bond |
-| `council_vote(outcome)` | council member | 2 matching → final; 3 different → Void |
-| `finalize()` | nobody (any fee payer) | after the window, unchallenged |
-| `claim()` | user | payout + bond refund if the council overturned |
+| `propose_outcome(verdict, bps, summary, sources, evidence_hash)` | resolver | Kept/Broken ≥ 7000 bps → Proposed, else → Voting |
+| `challenge()` | user | must have a Position; bond = config.bond; → Voting |
+| `cast_vote(choice, amount)` | voter + payer | **anyone**; 1–100 tUSDC, once per wallet; only while Voting |
+| `finalize()` | nobody (any fee payer) | Proposed after the challenge window, or Voting after the vote window (most tUSDC wins; tie/none → Void) |
+| `claim()` | user | stake payout + bond refund if the vote overturned the AI |
+| `claim_vote()` | voter | winners: `lock × all votes ÷ winning votes`; losers 0; tie/none → refund |
 
-Encoding for `side` / `verdict` / `outcome`: `1` Kept · `2` Broken · `3` Void (or Unclear from the AI).
+Encoding for `side` / `verdict` / `choice` / `outcome`: `1` Kept · `2` Broken · `3` Void (or Unclear from the AI). Statuses: `Open`, `Proposed`, `Voting`, `Finalized`, `Void`.
