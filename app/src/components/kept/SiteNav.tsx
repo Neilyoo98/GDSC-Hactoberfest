@@ -5,9 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const LINKS = [
   { href: '/', label: 'Promises' },
-  { href: '/council', label: 'Council' },
-  { href: '/leaderboard', label: 'Forecasters' },
-  { href: '/faucet', label: 'Get tUSDC' },
+  { href: '/bets', label: 'My Bets' },
 ];
 
 export function SiteNav() {
