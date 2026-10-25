@@ -342,6 +342,10 @@ textarea {
   margin-top: 28px;
   padding-top: 20px;
 }
+.draft code,
+.draft blockquote {
+  overflow-wrap: anywhere;
+}
 .skip {
   position: absolute;
   left: -9999px;
