@@ -16,12 +16,14 @@ export function keypairWallet(kp: Keypair): WalletLike {
 /** A throwaway wallet for tests. */
 export const makeTestWallet = () => keypairWallet(Keypair.generate());
 
-/** Browser only: a keypair persisted in localStorage, for users without Phantom. */
-export function burnerWallet(): WalletLike {
+/** Browser only: a devnet keypair persisted in localStorage, for tests and users without Phantom. */
+export function burnerKeypair(): Keypair {
   const KEY = "kept.burner";
   let secret: number[] | null = null;
   try { secret = JSON.parse(localStorage.getItem(KEY) ?? "null"); } catch {}
   const kp = secret ? Keypair.fromSecretKey(Uint8Array.from(secret)) : Keypair.generate();
   try { localStorage.setItem(KEY, JSON.stringify(Array.from(kp.secretKey))); } catch {}
-  return keypairWallet(kp);
+  return kp;
 }
+
+export const burnerWallet = (): WalletLike => keypairWallet(burnerKeypair());
