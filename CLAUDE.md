@@ -47,7 +47,7 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 - **Hands off:** `types.ts` + `apiClient.ts` + `.env.local` (private DM) by **12:30**; relay + faucet live by **14:30**.
 - **Done when:** draft, resolve, relay and faucet are live, `npm test` + `npm run test:api` are green, and there's a saved fixture for every demo step.
 
-### P3: Frontend UI (unassigned)
+### P3: Frontend UI (Noam)
 - **Builds:**
   - the design system ("civic ledger": paper tones; Kept/Broken always shown with icon + word, never color alone)
   - all pages: `/`, `/create`, `/markets/[id]`, `/council`, `/promisers/[handle]`, `/leaderboard`, `/faucet`
