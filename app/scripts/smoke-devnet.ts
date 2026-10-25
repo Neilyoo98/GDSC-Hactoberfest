@@ -89,7 +89,7 @@ async function main() {
   await chain.finalize(wa, id);
   if ((await chain.getMarket(id))?.status !== "finalized") fail("not finalized");
 
-  step("claim: A must get +40, B +60, C refused");
+  step("claim: A must get +40, B +60, C (lost) gets 0");
   const a0 = await bal(A.publicKey), b0 = await bal(B.publicKey);
   await chain.claim(wa, id);
   await chain.claim(wb, id);
@@ -97,7 +97,13 @@ async function main() {
   if (Math.abs(da - 40) > 1e-6) fail(`A got ${da}, expected 40`);
   if (Math.abs(db - 60) > 1e-6) fail(`B got ${db}, expected 60`);
   console.log("  ✓ A +40, B +60");
-  await expectReject(chain.claim(wc, id), "loser claim");
+  // The program lets a losing position claim: it pays 0 and marks the position claimed.
+  const c0 = await bal(C.publicKey);
+  await chain.claim(wc, id);
+  const dc = (await bal(C.publicKey)) - c0;
+  if (Math.abs(dc) > 1e-6) fail(`C (lost) got ${dc}, expected 0`);
+  console.log("  ✓ C +0 (losing side)");
+  await expectReject(chain.claim(wc, id), "second claim by the loser");
   await expectReject(chain.claim(wa, id), "double claim");
 
   for (const k of [A, B, C])
