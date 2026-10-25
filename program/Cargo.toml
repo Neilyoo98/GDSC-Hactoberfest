@@ -1,9 +1,9 @@
-# Local compile check only (`cargo test` in program/). Playground ignores this file
-# and uses its own Anchor version; keep the code compatible with Anchor 0.29 and 0.30.
+# Same dependencies as program/build.sh, which is the real build.
 [package]
 name = "kept"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.79"
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -18,5 +18,5 @@ no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
-anchor-lang = "0.30.1"
-anchor-spl = { version = "0.30.1", default-features = false, features = ["token"] }
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
