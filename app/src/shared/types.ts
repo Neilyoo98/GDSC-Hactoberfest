@@ -55,6 +55,6 @@ export interface ResolveResponse {
   action: "proposed" | "sent_to_council" | "skipped"; txSig: string | null; trace: TraceStep[];
 }
 export interface TraceStep { at: number; step: "read" | "search" | "judge" | "validate" | "write"; detail: string; }
-export interface DraftRequest { url?: string; text?: string; }
+export interface DraftRequest { url?: string; text?: string; guidance?: string; } // url can accompany pasted text when extraction needs a fallback
 export interface RelayRequest { tx: string; }
 export interface FaucetRequest { wallet: string; }

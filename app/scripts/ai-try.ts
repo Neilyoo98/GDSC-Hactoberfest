@@ -1,21 +1,33 @@
-import { fetchXPost } from "../src/server/context/oembed";
-import { extract } from "../src/server/context/tavily";
-import { sourceFromText } from "../src/server/context/source";
-import { draftMarket } from "../src/server/intelligence/drafter";
+import { DraftResponseSchema } from '../src/shared/draftSchemas';
 
 async function main() {
   const input = process.argv[2];
-  if (!input) throw new Error("Usage: ai:try -- <x-post-or-article-url|text>");
+  if (!input) throw new Error('Usage: ai:try -- <x-post-or-article-url|text>');
 
-  let source;
-  if (/^https?:\/\//iu.test(input)) {
-    source = /(?:x\.com|twitter\.com)\//iu.test(input) ? await fetchXPost(input) : await extract(input);
-  } else {
-    source = sourceFromText(input);
+  // Use the running app so server-only modules and API keys remain on the server.
+  const response = await fetch(
+    new URL('/api/draft', process.env.KEPT_BASE_URL || 'http://localhost:3000'),
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(
+        /^https?:\/\//iu.test(input) ? { url: input } : { text: input },
+      ),
+      signal: AbortSignal.timeout(100_000),
+    },
+  );
+  const result: unknown = await response.json();
+  if (!response.ok) {
+    const message =
+      result &&
+      typeof result === 'object' &&
+      'error' in result &&
+      typeof result.error === 'string'
+        ? result.error
+        : `Draft API returned HTTP ${response.status}.`;
+    throw new Error(message);
   }
-
-  const result = await draftMarket(source);
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify(DraftResponseSchema.parse(result), null, 2));
 }
 
 main().catch((error: unknown) => {

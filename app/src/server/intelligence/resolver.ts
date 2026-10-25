@@ -1,6 +1,6 @@
 import "server-only";
 import type { Citation, EvidencePack, MarketView, Verdict } from "@/shared/types";
-import { parseWithClaude } from "./claude";
+import { parseWithOpenAI } from "./openai";
 import { JudgmentSchema } from "./schemas";
 import { RESOLVER_SYSTEM } from "./prompts";
 
@@ -16,8 +16,9 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
 const clip = (value: string, max: number) => value.replace(/\s+/gu, " ").trim().slice(0, max);
 
 export async function judgeMarket(market: MarketView, pack: EvidencePack): Promise<ResolutionJudgment> {
-  const result = await parseWithClaude({
+  const result = await parseWithOpenAI({
     schema: JudgmentSchema,
+    schemaName: "promise_judgment",
     system: RESOLVER_SYSTEM,
     effort: "high",
     maxTokens: 6000,
