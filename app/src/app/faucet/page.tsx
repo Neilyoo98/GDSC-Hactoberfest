@@ -3,7 +3,7 @@ export default function Faucet() {
   return (
     <>
       <section className="hero compact">
-        <p className="eyebrow">Devnet only</p>
+        <p className="eyebrow">Try it out</p>
         <h1>
           A little conviction.
           <br />
@@ -20,8 +20,7 @@ export default function Faucet() {
           Connect wallet to claim
         </button>
         <p className="muted">
-          Wallet and faucet integrations are pending P4 and P2. No tokens have
-          been minted in this preview.
+          Token claims are coming soon. These demo tokens have no cash value.
         </p>
       </section>
     </>

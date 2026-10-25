@@ -33,7 +33,16 @@ export function MarketCard({ market }: { market: DemoMarket }) {
       <Link href={`/markets/${market.id}`} className="quote">
         “{market.quote}”
       </Link>
-      <p className="deadline">Deadline · {market.deadline}</p>
+      <p className="deadline">
+        Due{' '}
+        {new Date(`${market.deadline}T12:00:00Z`).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          timeZone: 'UTC',
+        })}
+        <span aria-hidden="true">↗</span>
+      </p>
       <OddsBar market={market} />
     </article>
   );
@@ -134,13 +143,13 @@ export function StakePanel({ market }: { market: DemoMarket }) {
                 : 'Prediction closed'}
           </h2>
           <p>
-            Resolution evidence and transactions will appear here when the chain
-            client is connected.
+            The supporting sources and final result will appear here when
+            available.
           </p>
           <button disabled>
             {market.status === 'Finalized'
               ? 'Connect wallet to claim'
-              : 'Awaiting integration'}
+              : 'Review pending'}
           </button>
         </>
       )}
