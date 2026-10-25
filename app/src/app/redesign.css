@@ -1,0 +1,587 @@
+/* OWNER: P3. Redesign layer: "the public record".
+   Loaded after globals.css. Paper + ink, serif display, mono figures,
+   thin rules instead of cards. Spacing 4/8/12/16/24/32/48; radius 4px;
+   no gradients, no shadows. */
+
+h1,
+h2,
+h3,
+.brand,
+.detail-quote,
+.quote,
+.ledger-quote,
+.masthead h1 {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.01em;
+}
+.mono,
+.amount,
+code,
+time,
+.ledger-pool,
+.ledger-pct,
+.stats-strip dd,
+.news-meta,
+.chip {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+button,
+.button {
+  border-radius: var(--radius);
+  min-height: 40px;
+  padding: 8px 16px;
+  gap: 8px;
+  box-shadow: none;
+}
+.primary,
+.button.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.primary:hover:not(:disabled),
+.button.primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.text-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.text-link:hover {
+  color: var(--ink);
+}
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px 64px;
+}
+
+/* Header: brand, nav, wallet + primary action on one line, rule underneath. */
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  position: static;
+}
+.site-header .brand {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+.brand-dot {
+  color: var(--kept);
+}
+.site-nav {
+  display: flex;
+  gap: 24px;
+  margin-right: auto;
+}
+.site-nav a {
+  font-size: 15px;
+  color: var(--muted);
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+}
+.site-nav a:hover {
+  color: var(--ink);
+}
+.site-nav a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Wallet button: wallet-adapter's default is purple; match the brand instead. */
+.wallet-adapter-button.wallet-button,
+.wallet-adapter-button-trigger {
+  background: transparent !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--ink) !important;
+  border-radius: var(--radius) !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+  font: 500 14px var(--font-mono), monospace !important;
+}
+.wallet-adapter-button-trigger:hover:not([disabled]) {
+  background: var(--accent-soft) !important;
+}
+.wallet-adapter-button-start-icon {
+  width: 18px !important;
+  height: 18px !important;
+  margin-right: 8px !important;
+}
+.wallet-adapter-dropdown-list {
+  background: var(--card) !important;
+  border: 1px solid var(--line);
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+}
+.wallet-adapter-dropdown-list-item {
+  color: var(--ink) !important;
+  font: 14px var(--font-sans) !important;
+  border-radius: 2px !important;
+}
+.wallet-adapter-dropdown-list-item:hover {
+  background: var(--accent-soft) !important;
+}
+.wallet-adapter-modal-wrapper {
+  background: var(--card) !important;
+  color: var(--ink) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+  border: 1px solid var(--rule);
+}
+.wallet-adapter-modal-title {
+  color: var(--ink) !important;
+  font-family: var(--font-display), serif !important;
+}
+.wallet-adapter-modal-list .wallet-adapter-button {
+  color: var(--ink) !important;
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+}
+.wallet-adapter-modal-list .wallet-adapter-button:hover {
+  background: var(--accent-soft) !important;
+}
+.wallet-adapter-modal-button-close {
+  background: var(--accent-soft) !important;
+}
+.wallet-adapter-modal-button-close svg {
+  fill: var(--ink) !important;
+}
+.wallet-adapter-modal-list-more {
+  color: var(--ink) !important;
+}
+.wallet-adapter-modal-middle-button {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+  border-radius: var(--radius) !important;
+}
+
+/* Home: masthead statement, stats, then the record and the news side by side. */
+.masthead {
+  padding: 48px 0 32px;
+  max-width: 760px;
+}
+.masthead h1 {
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.05;
+  font-weight: 500;
+  margin: 0 0 16px;
+}
+.masthead-lede {
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--ink);
+  max-width: 640px;
+  margin: 0 0 24px;
+}
+.masthead-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--line);
+  margin: 0 0 32px;
+}
+.stats-strip div {
+  padding: 12px 16px 12px 0;
+}
+.stats-strip div + div {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+.stats-strip dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+.stats-strip dd {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.front {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+.section-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.tabs {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 0 0 8px;
+}
+.tabs button {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+  color: var(--muted);
+}
+.tabs button + button {
+  border-left: 1px solid var(--line);
+}
+.tabs button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Ledger rows: the promise reads first; odds and money sit in a right column. */
+.ledger {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ledger-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 168px;
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ledger-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.ledger-meta a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.ledger-quote {
+  display: block;
+  font-size: 20px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+.ledger-quote:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.ledger-deadline {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ledger-odds {
+  text-align: right;
+  align-self: center;
+}
+.ledger-pct {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.ledger-pct span {
+  font-size: 22px;
+  font-weight: 500;
+}
+.ledger-pool {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ledger-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ledger-result {
+  margin: 0;
+  font: 600 18px var(--font-display), serif;
+}
+.ledger-result.kept {
+  color: var(--kept);
+}
+.ledger-result.broken {
+  color: var(--broken);
+}
+.ledger-result.void {
+  color: var(--muted);
+}
+.odds {
+  height: 4px;
+  border-radius: 0;
+  background: var(--broken);
+  overflow: hidden;
+}
+.odds span {
+  display: block;
+  height: 100%;
+  background: var(--kept);
+  border-radius: 0;
+}
+.empty {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.empty p {
+  margin: 0 0 8px;
+}
+
+/* Status chips: small outlined text labels, not colored pills. */
+.chip,
+.chip.open,
+.chip.proposed,
+.chip.challenged,
+.chip.council,
+.chip.finalized,
+.chip.void {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  background: transparent;
+  text-transform: none;
+}
+.chip.open {
+  color: var(--accent);
+}
+.chip.proposed,
+.chip.challenged {
+  color: #855600;
+}
+.chip.council {
+  color: #4b3f8f;
+}
+.chip.finalized,
+.chip.void {
+  color: var(--muted);
+}
+
+/* News rail. */
+.rail {
+  position: sticky;
+  top: 16px;
+}
+.rail-note {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.news-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.news-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.news-title {
+  display: block;
+  font: 500 16px/1.35 var(--font-display), serif;
+  color: var(--ink);
+}
+.news-title:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.news-track {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.news-track:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+/* Skeletons while loading. */
+.skeleton span {
+  display: block;
+  height: 12px;
+  margin: 6px 0;
+  background: var(--line);
+  border-radius: 2px;
+  animation: kept-pulse 1.2s ease-in-out infinite;
+}
+.skeleton span:first-child {
+  width: 40%;
+}
+.skeleton span:last-child {
+  width: 85%;
+  height: 16px;
+}
+@keyframes kept-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton span {
+    animation: none;
+  }
+}
+
+/* Shared surfaces on other pages: flatter and tighter. */
+.panel,
+.market-card,
+.draft {
+  border-radius: var(--radius);
+  box-shadow: none;
+  background: var(--card);
+  border-color: var(--line);
+}
+.market-card:hover {
+  box-shadow: none;
+  border-color: var(--ink);
+}
+.hero.compact {
+  padding: 32px 0 16px;
+}
+.hero.compact h1 {
+  font-weight: 500;
+}
+
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 24px 32px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@media (max-width: 960px) {
+  .front {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .rail {
+    position: static;
+  }
+}
+@media (max-width: 720px) {
+  .site-header {
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    padding: 12px 16px;
+  }
+  .site-nav {
+    order: 3;
+    width: 100%;
+    gap: 20px;
+    overflow-x: auto;
+    margin-right: 0;
+  }
+  .header-actions {
+    margin-left: auto;
+  }
+  /* The masthead carries "Track a promise" on phones. */
+  .header-actions .button.primary {
+    display: none;
+  }
+  main {
+    padding: 0 16px 48px;
+  }
+  .masthead {
+    padding: 32px 0 24px;
+  }
+  .stats-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stats-strip div:nth-child(3) {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .stats-strip div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .ledger-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .ledger-odds {
+    text-align: left;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .ledger-odds .ledger-pct,
+  .ledger-odds .ledger-pool {
+    margin: 0;
+  }
+}
+
+/* Share your call on X, shown under a confirmed prediction. */
+.share-bet {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.share-bet-title {
+  margin: 0 0 8px;
+  font: 500 16px var(--font-display), serif;
+}
+.share-bet-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.share-x {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.share-x:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}

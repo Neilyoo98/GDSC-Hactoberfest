@@ -11,11 +11,18 @@ import { useKeptActions } from '@/chain/hooks';
 import { ConnectWallet } from '@/wallet/ConnectWallet';
 
 const subscribe = () => () => {};
+// "Track this" links from the home page's news rail arrive as /create?url=…
+const readLinkedUrl = () => {
+  const linked = new URLSearchParams(window.location.search).get('url') ?? '';
+  return /^https?:\/\//iu.test(linked) ? linked : '';
+};
 
 export default function Create() {
   const router = useRouter();
   const { wallet, createMarket } = useKeptActions();
-  const [sourceInput, setSourceInput] = useState('');
+  const linkedUrl = useSyncExternalStore(subscribe, readLinkedUrl, () => '');
+  const [editedSource, setSourceInput] = useState<string | null>(null);
+  const sourceInput = editedSource ?? linkedUrl;
   const [guidanceInput, setGuidanceInput] = useState('');
   const [response, setResponse] = useState<DraftResponse | null>(null);
   const [loading, setLoading] = useState(false);
