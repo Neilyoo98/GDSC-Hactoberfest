@@ -88,7 +88,7 @@ export async function buildClaimTx(user: PublicKey, id: number): Promise<Transac
     .transaction();
 }
 
-/** Server-only (P2's orchestrator signs with the resolver key). PLAN.md Contracts signature. */
+/** Server-only (P2's orchestrator signs with the resolver key). docs/PLAN.md Contracts signature. */
 export async function buildProposeTx(
   resolver: PublicKey, id: number, v: Verdict, confidenceBps: number,
   summary: string, sources: string[], evidenceHash: Uint8Array,

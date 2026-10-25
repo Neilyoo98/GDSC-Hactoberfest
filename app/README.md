@@ -33,6 +33,6 @@ In VS Code, use **Simple Browser: Show** and enter `http://127.0.0.1:3000/create
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:e2e
 ```
 
-Automated tests use fixture provider responses and spend no API credits. The actual resolver workflow, relay, faucet, wallets, and chain client remain integration work. See `../docs/DEBUG_REVIEW.md` for the review findings and validation limits.
+Automated tests use fixture provider responses and spend no API credits. The actual resolver workflow, relay, faucet, wallets, and chain client remain integration work. See `../docs/archive/DEBUG_REVIEW.md` for the review findings and validation limits.
 
-See `../docs/TEST_CHECKLIST.md` for manual checks. Original project guidance remains in the user-provided PLAN.md and CLAUDE.md.
+See `../docs/TEST_CHECKLIST.md` for manual checks. Original project guidance remains in `../docs/PLAN.md` and `../CLAUDE.md`.

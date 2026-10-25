@@ -3,7 +3,7 @@
 > Did they keep their promise? A public promise tracker on Solana.
 > Hacktoberfest 2026 (GDSC x MLH) · Solana Partner Challenge + Tech for Good · Build window **12:00–18:00** · Team of 4
 
-This file holds the rules and the roles. **`PLAN.md` holds the details:** tasks, timeline, contracts, code sketches and fallbacks. Keep the two in sync: if a role, folder or rule changes, update both in the same commit.
+This file holds the rules and the roles. **`docs/PLAN.md` holds the details:** tasks, timeline, contracts, code sketches and fallbacks. Keep the two in sync: if a role, folder or rule changes, update both in the same commit.
 
 ## What we're building
 
@@ -54,7 +54,7 @@ Each person owns their folders **and the tests for their own code**. Only the ow
   - every UI state: open, resolving, proposed, challenged, council, finalized, void, plus empty, loading and error
 - **Owns:** `app/package.json` (the only person who adds dependencies), `app/src/app/**/page.tsx`, `layout.tsx`, `globals.css`, `app/src/components/`.
 - **Tests:** Playwright end-to-end tests in mock mode, `app/tests/e2e/`; manual checks in `docs/TEST_CHECKLIST.md`.
-- **Hands off:** scaffold on `main` by **12:25**: every file in the `PLAN.md` Scaffold stubbed, every dependency installed.
+- **Hands off:** scaffold on `main` by **12:25**: every file in the `docs/PLAN.md` Scaffold stubbed, every dependency installed.
 - **Done when:** every MUST screen works on live devnet data and `npm run test:e2e` is green.
 
 ### P4: Frontend wallet + chain (aaron)
@@ -70,7 +70,7 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 - **Hands off:** `chain/index.ts` interface by **12:30**; mock + fixtures by **12:45**; tx builders on devnet by **14:15**.
 - **Done when:** `NEXT_PUBLIC_CHAIN=anchor` runs the full MUST path gaslessly and the smoke test is green.
 
-**Order of work:** follow `PLAN.md` → Master Sequence. Never start a step before what it waits for is on `main`; the person receiving a handoff checks it (handoffs H1–H13).
+**Order of work:** follow `docs/PLAN.md` → Master Sequence. Never start a step before what it waits for is on `main`; the person receiving a handoff checks it (handoffs H1–H13).
 
 **Review pairs:** P1 ↔ P2, P3 ↔ P4. **Merge order at checkpoints:** P1 → P2 → P4 → P3.
 
@@ -114,8 +114,8 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 
 ## Working with Claude on this repo
 
-- Start by finding the user's person (P1–P4) and their **Agent brief** in `PLAN.md`; follow its steps in order.
+- Start by finding the user's person (P1–P4) and their **Agent brief** in `docs/PLAN.md`; follow its steps in order.
 - Before writing code, check which lane owns the file (the Roles section above). Stay inside that lane unless asked; if a change needs another lane's file, say so instead of editing it.
-- Follow the `PLAN.md` Contracts section (`types.ts`, `constants.ts`, `KeptChain`). After 12:30, changes to them are additive only.
+- Follow the `docs/PLAN.md` Contracts section (`types.ts`, `constants.ts`, `KeptChain`). After 12:30, changes to them are additive only.
 - Don't add a database, an admin withdraw, real money or mainnet paths.
 - Run `npm run check` before calling anything done, and report failures as they are.
