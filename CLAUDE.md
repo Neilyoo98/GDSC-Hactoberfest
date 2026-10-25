@@ -26,14 +26,14 @@ Paste a public promise from X or the news. AI turns it into a yes/no market with
 
 Each person owns their folders **and the tests for their own code**. Only the owner edits a file; ask in chat or leave `// TODO(P#): …` in your own file.
 
-### P1: Blockchain
+### P1: Blockchain (Neil)
 - **Builds:** the Anchor program with these instructions: `initialize_config`, `update_config`, `create_market`, `place_stake`, `propose_outcome`, `challenge`, `council_vote`, `finalize`, `claim`. Accounts: Config, Market, per-market Vault, Position.
 - **Owns:** `program/`, `app/src/shared/idl/`, `app/src/shared/constants.ts`; plus `app/src/chain/custodial.ts`, but only if Anchor is called off at a go/no-go gate.
 - **Tests:** `program/tests/kept.test.ts` (Playground). Every instruction gets a happy path and one rejected path, plus the payout worked example.
 - **Hands off:** program ID + stub IDL by **12:45**; frozen IDL by **13:30**. After that, account layouts change only with team agreement.
 - **Done when:** the program is on devnet, the tests are green, and the IDL is on `main`.
 
-### P2: Backend
+### P2: Backend (net-bob)
 - **Builds:**
   - context layer: oEmbed, Tavily, sha256 fingerprints, evidence packs
   - intelligence layer: OpenAI drafter and resolver, schema-validated
@@ -47,17 +47,17 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 - **Hands off:** `types.ts` + `apiClient.ts` + `.env.local` (private DM) by **12:30**; relay + faucet live by **14:30**.
 - **Done when:** draft, resolve, relay and faucet are live, `npm test` + `npm run test:api` are green, and there's a saved fixture for every demo step.
 
-### P3: Frontend UI
+### P3: Frontend UI (Noam)
 - **Builds:**
   - the design system ("civic ledger": paper tones; Kept/Broken always shown with icon + word, never color alone)
   - all pages: `/`, `/create`, `/markets/[id]`, `/council`, `/promisers/[handle]`, `/leaderboard`, `/faucet`
   - every UI state: open, resolving, proposed, challenged, council, finalized, void, plus empty, loading and error
 - **Owns:** `app/package.json` (the only person who adds dependencies), `app/src/app/**/page.tsx`, `layout.tsx`, `globals.css`, `app/src/components/`.
 - **Tests:** Playwright end-to-end tests in mock mode, `app/tests/e2e/`; manual checks in `docs/TEST_CHECKLIST.md`.
-- **Hands off:** scaffold on `main` by **12:25**: every file in `PLAN.md` §4 stubbed, every dependency installed.
+- **Hands off:** scaffold on `main` by **12:25**: every file in the `PLAN.md` Scaffold stubbed, every dependency installed.
 - **Done when:** every MUST screen works on live devnet data and `npm run test:e2e` is green.
 
-### P4: Frontend wallet + chain
+### P4: Frontend wallet + chain (aaron)
 - **Builds:**
   - the `KeptChain` client: interface, mock, Anchor implementation, PDA helpers, tx builders including `buildProposeTx`, account decoding, React hooks
   - wallet providers + burner wallet
@@ -69,6 +69,8 @@ Each person owns their folders **and the tests for their own code**. Only the ow
   - **`npm run smoke:devnet`**, the full money path on real devnet, asserting +40. This test is the 15:30 gate.
 - **Hands off:** `chain/index.ts` interface by **12:30**; mock + fixtures by **12:45**; tx builders on devnet by **14:15**.
 - **Done when:** `NEXT_PUBLIC_CHAIN=anchor` runs the full MUST path gaslessly and the smoke test is green.
+
+**Order of work:** follow `PLAN.md` → Master Sequence. Never start a step before what it waits for is on `main`; the person receiving a handoff checks it (handoffs H1–H13).
 
 **Review pairs:** P1 ↔ P2, P3 ↔ P4. **Merge order at checkpoints:** P1 → P2 → P4 → P3.
 
@@ -112,7 +114,8 @@ Each person owns their folders **and the tests for their own code**. Only the ow
 
 ## Working with Claude on this repo
 
+- Start by finding the user's person (P1–P4) and their **Agent brief** in `PLAN.md`; follow its steps in order.
 - Before writing code, check which lane owns the file (the Roles section above). Stay inside that lane unless asked; if a change needs another lane's file, say so instead of editing it.
-- Follow the contracts in `PLAN.md` §5 (`types.ts`, `constants.ts`, `KeptChain`). After 12:30, changes to them are additive only.
+- Follow the `PLAN.md` Contracts section (`types.ts`, `constants.ts`, `KeptChain`). After 12:30, changes to them are additive only.
 - Don't add a database, an admin withdraw, real money or mainnet paths.
 - Run `npm run check` before calling anything done, and report failures as they are.

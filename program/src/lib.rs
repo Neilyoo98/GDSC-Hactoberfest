@@ -6,8 +6,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-// Playground rewrites this on the first build.
-declare_id!("11111111111111111111111111111111");
+// Program keypair: ~/.config/kept/kept-keypair.json in WSL (see program/build.sh).
+declare_id!("GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap");
 
 pub const MIN_STAKE: u64 = 1_000_000; // 1 tUSDC (6 decimals)
 pub const MAX_STAKE: u64 = 100_000_000; // 100 tUSDC
