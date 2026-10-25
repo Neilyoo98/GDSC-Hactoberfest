@@ -234,7 +234,14 @@ export function StakePanel({ market }: { market: MarketView }) {
               {position ? `Your ${position.side} prediction · ${position.amount} tUSDC` : busy ? 'Waiting for confirmation…' : 'Confirm prediction'}
           </button>
           {position && <p className="muted">One prediction per wallet on each market.</p>}
-          {position && <ShareBet market={market} side={position.side} amount={position.amount} />}
+          {(position || valid) && (
+            <ShareBet
+              market={market}
+              side={position?.side ?? side}
+              amount={position?.amount ?? amount}
+              confirmed={Boolean(position)}
+            />
+          )}
         </>
       ) : (
         <>
