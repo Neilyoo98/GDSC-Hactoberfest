@@ -1,7 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useKeptActions } from '@/chain/hooks';
+import { explorerTx } from '@/chain/relay';
 import { ApiError, draftPromise } from '@/shared/apiClient';
+import { LIMITS } from '@/shared/constants';
 import { DraftRequestSchema } from '@/shared/draftSchemas';
 import type { DraftRequest, DraftResponse, MarketDraft } from '@/shared/types';
 
@@ -21,6 +26,11 @@ export default function Create() {
     () => false,
   );
   const activeRequest = useRef<AbortController | null>(null);
+  const actions = useKeptActions();
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState<{ id: number; sig: string } | null>(
+    null,
+  );
   useEffect(() => () => activeRequest.current?.abort(), []);
 
   async function submitDraft(request: DraftRequest) {
@@ -35,6 +45,7 @@ export default function Create() {
     setLoading(true);
     setError(null);
     setResponse(null);
+    setCreated(null);
     try {
       const next = await draftPromise(parsed.data, controller.signal);
       if (!controller.signal.aborted) {
@@ -95,6 +106,7 @@ export default function Create() {
     setSourceInput(value);
     setError(null);
     setResponse(null);
+    setCreated(null);
     setManualSourceText('');
     setShowManualFallback(false);
   }
@@ -111,6 +123,31 @@ export default function Create() {
   }
 
   const draft = response?.decision === 'accept' ? response.draft : null;
+
+  async function createOnChain() {
+    if (!response || !draft || creating) return;
+    // The program needs a non-empty source URL (≤ 120 chars). Pasted text has
+    // no URL, so it is referenced by its fingerprint instead.
+    const url = response.source.url ?? '';
+    const sourceUrl =
+      url && url.length <= LIMITS.sourceUrl
+        ? url
+        : `text:${response.source.sha256.slice(0, 16)}`;
+    setCreating(true);
+    try {
+      setCreated(
+        await actions.createMarket({
+          ...draft,
+          sourceUrl,
+          sourceHash: response.source.sha256,
+        }),
+      );
+    } catch {
+      // useKeptActions already shows the error in a toast.
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <>
@@ -336,13 +373,43 @@ export default function Create() {
                     </ul>
                   </div>
                 )}
-                <button
-                  className="primary"
-                  disabled
-                  title="Wallet and market creation integration is pending."
-                >
-                  Create on Solana · Wallet integration pending
-                </button>
+                {created ? (
+                  <div role="status">
+                    <h3 className="positive">✓ Saved as market #{created.id}</h3>
+                    <p>
+                      <Link href={`/markets/${created.id}`} className="text-link">
+                        Open the market ↗
+                      </Link>
+                      {!created.sig.startsWith('mock') && (
+                        <>
+                          {' · '}
+                          <a
+                            href={explorerTx(created.sig)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-link"
+                          >
+                            View on Solana Explorer ↗
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                ) : actions.wallet ? (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={createOnChain}
+                    disabled={creating}
+                  >
+                    {creating ? 'Creating on Solana…' : 'Create on Solana'}
+                  </button>
+                ) : (
+                  <div>
+                    <p className="muted">Connect a wallet to create this market.</p>
+                    <WalletMultiButton />
+                  </div>
+                )}
               </>
             ) : null}
           </div>
