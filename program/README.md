@@ -1,6 +1,6 @@
 # program/: Kept Anchor program (P1)
 
-Built, deployed and tested in **Solana Playground** (`beta.solpg.io`). Nobody needs Rust installed.
+Built with the Anchor CLI in WSL (`build.sh`) and deployed to devnet. The Playground tests still run in Solana Playground.
 
 ## Files
 
@@ -8,18 +8,38 @@ Built, deployed and tested in **Solana Playground** (`beta.solpg.io`). Nobody ne
 |---|---|
 | `src/lib.rs` | The whole program: 9 instructions, 3 account types, errors, payout math + Rust unit tests |
 | `tests/kept.test.ts` | Playground test suite (Test tab) |
-| `Cargo.toml` | Only for a local `cargo test` of the payout math. Playground ignores it. |
+| `build.sh` | Builds the program + IDL in WSL and runs the Rust unit tests |
+| `env.sh` | Puts the Solana + Anchor tools on PATH |
+| `Cargo.toml` | Plain crate manifest (same dependencies as `build.sh` uses) |
 
-## Deploy in Playground
+## Program ID
 
-1. Open `beta.solpg.io` → **Create a new project** → framework **Anchor** → name `kept`.
-2. Replace `src/lib.rs` with this repo's `src/lib.rs`. Add `tests/kept.test.ts` to the Playground `tests/` folder.
-3. Connect the Playground wallet (bottom-left). **Export its keypair** (Settings → Wallet → export) and keep it safe. That wallet is the program's upgrade authority.
-4. Fund it on devnet: `faucet.solana.com` → paste the wallet address. Deploying needs about **3–5 SOL**.
-5. **Build** (Playground rewrites `declare_id!` with the new program ID) → **Deploy**.
-6. **Export the IDL**: Build panel → IDL → Export → save to `app/src/shared/idl/kept.json`.
-7. Post the **program ID** in team chat. Also say whether the IDL has a top-level `"address"` field (Anchor ≥ 0.30 format → `@coral-xyz/anchor@0.30.1`) or not (0.29 format → `@coral-xyz/anchor@0.29.0`).
-8. Copy the `declare_id!` line Playground wrote back into this repo's `src/lib.rs` and commit.
+**`GYupVpsMEY12UGgS1gUdabq4UvmbR6PvbmUewQbw7gap`** (devnet). The program keypair is `~/.config/kept/kept-keypair.json` in P1's WSL, so the ID stays the same on every rebuild.
+
+## Build (WSL / Linux, Anchor CLI 0.31.2 + Agave 2.3.13)
+
+```bash
+bash program/build.sh test     # builds kept.so + IDL, runs the Rust unit tests
+```
+`build.sh` assembles a standard Anchor workspace in `~/kept-ws` (so Windows never runs build output) and pins `blake3 = 1.5.5`, because newer versions need Rust 2024, which the Solana toolchain's cargo 1.84 can't read.
+
+After a build, copy the outputs into the app:
+```bash
+cp ~/kept-ws/target/idl/kept.json app/src/shared/idl/kept.json
+# then regenerate app/src/shared/idl/kept.ts from ~/kept-ws/target/types/kept.ts (keep the header and the IDL export)
+```
+
+## Deploy (devnet)
+
+The deploy wallet is `~/.config/solana/id.json` (it is also the upgrade authority). It needs **about 2.9 SOL**: rent for a 411 KB program, plus a temporary buffer whose SOL is returned before the program data is paid for.
+```bash
+source program/env.sh          # or add ~/kept-tools/bin and ~/kept-tools/solana-release/bin to PATH
+cd ~/kept-ws
+solana program deploy target/deploy/kept.so --program-id target/deploy/kept-keypair.json --max-len $(stat -c %s target/deploy/kept.so)
+```
+`--max-len` set to the exact size keeps rent at about 2.9 SOL. Later upgrades that make the program bigger need `solana program extend`.
+
+**Backup:** Solana Playground (`beta.solpg.io`): paste `src/lib.rs`, build, deploy, export the IDL. This uses a different program ID.
 
 ## Test in Playground
 
