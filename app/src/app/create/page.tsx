@@ -1,13 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useRouter } from 'next/navigation';
 import { ApiError, draftPromise } from '@/shared/apiClient';
 import { DraftRequestSchema } from '@/shared/draftSchemas';
 import type { DraftRequest, DraftResponse, MarketDraft } from '@/shared/types';
+import { useKeptActions } from '@/chain/hooks';
+import { ConnectWallet } from '@/wallet/ConnectWallet';
 
 const subscribe = () => () => {};
 
 export default function Create() {
+  const router = useRouter();
+  const { wallet, createMarket } = useKeptActions();
   const [sourceInput, setSourceInput] = useState('');
   const [guidanceInput, setGuidanceInput] = useState('');
   const [response, setResponse] = useState<DraftResponse | null>(null);
@@ -15,6 +20,8 @@ export default function Create() {
   const [error, setError] = useState<string | null>(null);
   const [manualSourceText, setManualSourceText] = useState('');
   const [showManualFallback, setShowManualFallback] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const hydrated = useSyncExternalStore(
     subscribe,
     () => true,
@@ -108,6 +115,36 @@ export default function Create() {
         return current;
       return { ...current, draft: { ...current.draft, [key]: value } };
     });
+  }
+
+  async function publishDraft() {
+    if (!response || response.decision !== 'accept' || !response.draft) return;
+    if (!response.source.url) {
+      setCreateError(
+        'Add a public source URL to publish this draft on-chain. Pasted text can be drafted, but the on-chain record needs a source link.',
+      );
+      return;
+    }
+    if (!wallet) {
+      setCreateError('Connect a Solana wallet before creating the market.');
+      return;
+    }
+    setCreateError(null);
+    setCreating(true);
+    try {
+      const { id } = await createMarket({
+        ...response.draft,
+        sourceUrl: response.source.url,
+        sourceHash: response.source.sha256,
+      });
+      router.push(`/markets/${id}`);
+    } catch (cause) {
+      setCreateError(
+        cause instanceof Error ? cause.message : 'Could not create the market.',
+      );
+    } finally {
+      setCreating(false);
+    }
   }
 
   const draft = response?.decision === 'accept' ? response.draft : null;
@@ -336,13 +373,24 @@ export default function Create() {
                     </ul>
                   </div>
                 )}
+                {!wallet && <ConnectWallet />}
+                {createError && (
+                  <p role="alert" className="negative">{createError}</p>
+                )}
                 <button
                   className="primary"
-                  disabled
-                  title="Wallet and market creation integration is pending."
+                  type="button"
+                  disabled={!hydrated || creating || !wallet || !response.source.url}
+                  onClick={() => void publishDraft()}
+                  title={!response.source.url ? 'A public source URL is required for the on-chain record.' : undefined}
                 >
-                  Create on Solana · Wallet integration pending
+                  {creating ? 'Waiting for wallet…' : 'Create on Solana'}
                 </button>
+                {!response.source.url && (
+                  <p className="muted">
+                    To publish, start with the source URL (pasted text remains useful as a fallback for an unreadable page).
+                  </p>
+                )}
               </>
             ) : null}
           </div>

@@ -72,7 +72,8 @@ export async function POST(req: Request) {
       transaction: tx.serialize({ requireAllSignatures: false }).toString("base64"),
       message: `Staked ${amount} tUSDC on ${side === "kept" ? "Kept" : "Broken"}.`,
     }, { headers: ACTIONS_HEADERS });
-  } catch (e: any) {
-    return err(String(e?.message ?? e).slice(0, 200), 500);
+  } catch (cause: unknown) {
+    const message = cause instanceof Error ? cause.message : 'Could not prepare the stake transaction.';
+    return err(message.slice(0, 200), 500);
   }
 }
