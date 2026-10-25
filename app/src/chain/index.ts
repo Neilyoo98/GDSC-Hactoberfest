@@ -2,6 +2,9 @@
 import type { PublicKey, Transaction } from "@solana/web3.js";
 import type { MarketView, PositionView, MarketDraft, Side, Outcome } from "@/shared/types";
 import { mockChain } from "./mock";
+import { anchorChain } from "./anchor";
+
+export { buildProposeTx } from "./tx";
 
 export interface WalletLike {
   publicKey: PublicKey;
@@ -23,10 +26,17 @@ export interface KeptChain {
   claim(w: WalletLike, id: number): Promise<string>;
 }
 
-// Hooks for P3 (src/chain/hooks.ts, P4-5): useMarkets(), useMarket(id), usePositions({ owner }), useKeptActions()
-// buildProposeTx (for P2) is re-exported from here in P4-5.
+// Hooks for P3 (src/chain/hooks.ts): useMarkets(), useMarket(id), usePositions({ owner }), useKeptActions()
 
-/** NEXT_PUBLIC_CHAIN = "mock" | "anchor" | "custodial". anchor + custodial are wired in P4-5. */
+export type ChainMode = "mock" | "anchor" | "custodial";
+export const CHAIN_MODE = (process.env.NEXT_PUBLIC_CHAIN ?? "mock") as ChainMode;
+
+/** NEXT_PUBLIC_CHAIN = "mock" | "anchor" | "custodial". */
 export function getChain(): KeptChain {
-  return mockChain;
+  switch (CHAIN_MODE) {
+    case "anchor": return anchorChain;
+    // TODO(P1): custodial.ts is only filled in if Anchor is called off at a go/no-go.
+    case "custodial": throw new Error("custodialChain not implemented (P1 fallback)");
+    default: return mockChain;
+  }
 }
