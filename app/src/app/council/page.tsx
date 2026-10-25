@@ -1,6 +1,5 @@
 // OWNER: P3
-import { markets } from '@/components/kept/demo';
-import { MarketCard } from '@/components/kept/ledger';
+import { CouncilInbox } from '@/components/kept/resolution';
 export default function Council() {
   return (
     <>
@@ -11,17 +10,7 @@ export default function Council() {
           Three council members. Two matching votes. Every decision on record.
         </p>
       </section>
-      <p className="muted">
-        Sample inbox. Council wallet authentication, evidence, and voting await
-        P4’s hooks.
-      </p>
-      <div className="grid">
-        {markets
-          .filter((m) => m.status === 'Council')
-          .map((m) => (
-            <MarketCard market={m} key={m.id} />
-          ))}
-      </div>
+      <CouncilInbox />
     </>
   );
 }
